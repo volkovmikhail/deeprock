@@ -29,6 +29,7 @@ app.use(basePath + '/static/shared', express.static(path.resolve(__dirname, 'sha
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.set('trust proxy', 1);
 const limiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 100,
