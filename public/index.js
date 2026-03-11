@@ -1,9 +1,16 @@
+const GAME_WIDTH = window.innerWidth;
+const GAME_HEIGHT = window.innerHeight;
+
 const config = {
   type: Phaser.AUTO,
-  width: 480,
-  height: 640,
-  backgroundColor: "#1b1d2b",
-  parent: "game-container",
+  backgroundColor: '#1b1d2b',
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
+    parent: 'game-container',
+  },
   scene: {
     preload,
     create,
@@ -15,7 +22,7 @@ const game = new Phaser.Game(config);
 
 const GRID_ROWS = 8;
 const GRID_COLS = 8;
-const CELL_SIZE = 56;
+const CELL_SIZE = GAME_HEIGHT > GAME_WIDTH ? GAME_WIDTH / (GRID_COLS + 2) : GAME_HEIGHT / (GRID_ROWS + 2);
 const COLORS = [0xff595e, 0xffca3a, 0x8ac926, 0x1982c4, 0x6a4c93];
 
 let board = [];
@@ -28,17 +35,17 @@ let scoreText;
 function preload() {}
 
 function create() {
-  this.cameras.main.setBackgroundColor("#111320");
+  this.cameras.main.setBackgroundColor('#111320');
 
   gemsGroup = this.add.group();
   createBoard(this);
   drawBoard(this);
 
   scoreText = this.add
-    .text(config.width / 2, 40, "Score: 0", {
-      fontFamily: "Arial",
-      fontSize: "28px",
-      color: "#ffffff",
+    .text(GAME_WIDTH / 2, 40, 'Score: 0', {
+      fontFamily: 'Arial',
+      fontSize: '28px',
+      color: '#ffffff',
     })
     .setOrigin(0.5);
 }
@@ -75,7 +82,7 @@ function createsMatchAt(b, row, col) {
 function drawBoard(scene, movement = []) {
   gemsGroup.clear(true, true);
 
-  const offsetX = (config.width - GRID_COLS * CELL_SIZE) / 2;
+  const offsetX = (GAME_WIDTH - GRID_COLS * CELL_SIZE) / 2;
   const offsetY = 100;
 
   const movementMap = new Map();
@@ -97,24 +104,21 @@ function drawBoard(scene, movement = []) {
 
       const fromRow = movementMap.get(`${row},${col}`);
       if (fromRow !== undefined) {
-        const startY =
-          fromRow >= 0
-            ? offsetY + fromRow * CELL_SIZE + CELL_SIZE / 2
-            : offsetY - CELL_SIZE;
+        const startY = fromRow >= 0 ? offsetY + fromRow * CELL_SIZE + CELL_SIZE / 2 : offsetY - CELL_SIZE;
         gem.y = startY;
         scene.tweens.add({
           targets: gem,
           y,
           duration: fallDuration,
-          ease: "Quad.easeIn",
+          ease: 'Quad.easeIn',
         });
       }
 
-      gem.setData("row", row);
-      gem.setData("col", col);
+      gem.setData('row', row);
+      gem.setData('col', col);
 
       gem.setInteractive();
-      gem.on("pointerdown", () => onGemClicked(scene, gem));
+      gem.on('pointerdown', () => onGemClicked(scene, gem));
 
       gemsGroup.add(gem);
     }
@@ -130,14 +134,12 @@ function onGemClicked(scene, gem) {
     deselectGem(selectedGem);
     selectedGem = null;
   } else {
-    const r1 = selectedGem.getData("row");
-    const c1 = selectedGem.getData("col");
-    const r2 = gem.getData("row");
-    const c2 = gem.getData("col");
+    const r1 = selectedGem.getData('row');
+    const c1 = selectedGem.getData('col');
+    const r2 = gem.getData('row');
+    const c2 = gem.getData('col');
 
-    const isAdjacent =
-      (r1 === r2 && Math.abs(c1 - c2) === 1) ||
-      (c1 === c2 && Math.abs(r1 - r2) === 1);
+    const isAdjacent = (r1 === r2 && Math.abs(c1 - c2) === 1) || (c1 === c2 && Math.abs(r1 - r2) === 1);
 
     if (!isAdjacent) {
       deselectGem(selectedGem);
@@ -176,20 +178,20 @@ function deselectGem(gem) {
 }
 
 function swapGems(scene, gem1, gem2, onComplete) {
-  const r1 = gem1.getData("row");
-  const c1 = gem1.getData("col");
-  const r2 = gem2.getData("row");
-  const c2 = gem2.getData("col");
+  const r1 = gem1.getData('row');
+  const c1 = gem1.getData('col');
+  const r2 = gem2.getData('row');
+  const c2 = gem2.getData('col');
 
   // swap in board
   const tmp = board[r1][c1];
   board[r1][c1] = board[r2][c2];
   board[r2][c2] = tmp;
 
-  gem1.setData("row", r2);
-  gem1.setData("col", c2);
-  gem2.setData("row", r1);
-  gem2.setData("col", c1);
+  gem1.setData('row', r2);
+  gem1.setData('col', c2);
+  gem2.setData('row', r1);
+  gem2.setData('col', c1);
 
   const tweenDuration = 150;
 
@@ -198,7 +200,7 @@ function swapGems(scene, gem1, gem2, onComplete) {
     x: gem2.x,
     y: gem2.y,
     duration: tweenDuration,
-    ease: "Quad.easeInOut",
+    ease: 'Quad.easeInOut',
   });
 
   const tween2 = scene.tweens.add({
@@ -206,7 +208,7 @@ function swapGems(scene, gem1, gem2, onComplete) {
     x: gem1.x,
     y: gem1.y,
     duration: tweenDuration,
-    ease: "Quad.easeInOut",
+    ease: 'Quad.easeInOut',
     onComplete,
   });
 }
@@ -223,7 +225,7 @@ function findMatches(b) {
       } else {
         if (matchLength >= 3) {
           matches.push({
-            type: "row",
+            type: 'row',
             row,
             colStart: col - matchLength,
             length: matchLength,
@@ -234,7 +236,7 @@ function findMatches(b) {
     }
     if (matchLength >= 3) {
       matches.push({
-        type: "row",
+        type: 'row',
         row,
         colStart: GRID_COLS - matchLength,
         length: matchLength,
@@ -251,7 +253,7 @@ function findMatches(b) {
       } else {
         if (matchLength >= 3) {
           matches.push({
-            type: "col",
+            type: 'col',
             col,
             rowStart: row - matchLength,
             length: matchLength,
@@ -262,7 +264,7 @@ function findMatches(b) {
     }
     if (matchLength >= 3) {
       matches.push({
-        type: "col",
+        type: 'col',
         col,
         rowStart: GRID_ROWS - matchLength,
         length: matchLength,
@@ -277,7 +279,7 @@ function handleMatches(scene, matches) {
   const toRemove = new Set();
 
   matches.forEach((m) => {
-    if (m.type === "row") {
+    if (m.type === 'row') {
       for (let c = m.colStart; c < m.colStart + m.length; c++) {
         toRemove.add(`${m.row},${c}`);
       }
@@ -293,7 +295,7 @@ function handleMatches(scene, matches) {
 
   // clear matched cells
   toRemove.forEach((key) => {
-    const [r, c] = key.split(",").map(Number);
+    const [r, c] = key.split(',').map(Number);
     board[r][c] = null;
   });
 
