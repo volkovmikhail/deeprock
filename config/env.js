@@ -14,6 +14,7 @@ const config = {
   basePath: process.env.BASE_PATH ?? '',
   nodeEnv: process.env.NODE_ENV ?? 'development',
   tgToken: process.env.TG_BOT_TOKEN,
+  baseUrl: process.env.BASE_URL,
 };
 
 function checkConfig(config) {
