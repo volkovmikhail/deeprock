@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' https://cdn.jsdelivr.net;
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data:;
+        object-src 'none';
+        base-uri 'none';
+        form-action 'self';
+      "
+    >
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Match-3 Game</title>
+<link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div id="game-container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.0/dist/phaser.min.js"></script>
+    <script src="./index.js"></script>
+  </body>
+</html>
