@@ -24,7 +24,7 @@ fetch('/api/user/profile', {
 async function start() {
   const config = {
     type: Phaser.AUTO,
-    backgroundColor: '#1b1d2b',
+    backgroundColor: '#000000',
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -44,7 +44,8 @@ async function start() {
   const GRID_ROWS = 8;
   const GRID_COLS = 8;
   const CELL_SIZE = GAME_HEIGHT > GAME_WIDTH ? GAME_WIDTH / (GRID_COLS + 2) : GAME_HEIGHT / (GRID_ROWS + 2);
-  const COLORS = [0xff595e, 0xffca3a, 0x8ac926, 0x1982c4, 0x6a4c93];
+
+  const ORE_KEYS = ['ore_copper', 'ore_gold', 'ore_emerald', 'ore_lapis', 'ore_ruby', 'ore_silver'];
 
   let board = [];
   let gemsGroup;
@@ -52,11 +53,29 @@ async function start() {
   let isSwapping = false;
   let score = 0;
   let scoreText;
+  let backgroundImage;
 
-  function preload() {}
+  function preload() {
+    // background
+    this.load.image('bg', 'assets/bg.png');
+
+    // ores
+    this.load.image('ore_copper', 'assets/copper_ore.webp');
+    this.load.image('ore_gold', 'assets/gold_ore.webp');
+    this.load.image('ore_emerald', 'assets/emerald_ore.webp');
+    this.load.image('ore_lapis', 'assets/lapis_lazuli_ore.webp');
+    this.load.image('ore_ruby', 'assets/ruby_ore.webp');
+    this.load.image('ore_silver', 'assets/ssilver_ore.webp');
+  }
 
   function create() {
-    this.cameras.main.setBackgroundColor('#111320');
+    backgroundImage = this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'bg')
+      .setOrigin(0.5);
+    backgroundImage.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+    backgroundImage.setDepth(-2);
+
+    this.cameras.main.setBackgroundColor('#000000');
 
     gemsGroup = this.add.group();
     createBoard(this);
@@ -68,7 +87,8 @@ async function start() {
         fontSize: '28px',
         color: '#ffffff',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(10);
   }
 
   function update() {}
@@ -80,7 +100,7 @@ async function start() {
       for (let col = 0; col < GRID_COLS; col++) {
         let colorIndex;
         do {
-          colorIndex = Phaser.Math.Between(0, COLORS.length - 1);
+          colorIndex = Phaser.Math.Between(0, ORE_KEYS.length - 1);
           board[row][col] = colorIndex;
         } while (createsMatchAt(board, row, col));
       }
@@ -118,10 +138,11 @@ async function start() {
         const x = offsetX + col * CELL_SIZE + CELL_SIZE / 2;
         const y = offsetY + row * CELL_SIZE + CELL_SIZE / 2;
 
-        const gem = scene.add
-          .rectangle(x, y, CELL_SIZE - 6, CELL_SIZE - 6, COLORS[colorIndex])
-          .setStrokeStyle(2, 0x000000)
-          .setOrigin(0.5);
+        const gemKey = ORE_KEYS[colorIndex];
+        const gem = scene.add.image(x, y, gemKey).setOrigin(0.5);
+
+        const scaleFactor = (CELL_SIZE - 6) / Math.max(gem.width, gem.height);
+        gem.setScale(scaleFactor);
 
         const fromRow = movementMap.get(`${row},${col}`);
         if (fromRow !== undefined) {
@@ -138,7 +159,7 @@ async function start() {
         gem.setData('row', row);
         gem.setData('col', col);
 
-        gem.setInteractive();
+        gem.setInteractive({ useHandCursor: true });
         gem.on('pointerdown', () => onGemClicked(scene, gem));
 
         gemsGroup.add(gem);
@@ -187,15 +208,13 @@ async function start() {
   }
 
   function selectGem(gem) {
-    gem.setScale(1.1);
-    gem.setStrokeStyle(3, 0xffffff);
+    gem.setScale(gem.scale * 1.1);
     selectedGem = gem;
   }
 
   function deselectGem(gem) {
     if (!gem) return;
-    gem.setScale(1);
-    gem.setStrokeStyle(2, 0x000000);
+    gem.setScale(gem.scale / 1.1);
   }
 
   function swapGems(scene, gem1, gem2, onComplete) {
@@ -342,7 +361,7 @@ async function start() {
       }
 
       for (let row = pointer; row >= 0; row--) {
-        newBoard[row][col] = Phaser.Math.Between(0, COLORS.length - 1);
+        newBoard[row][col] = Phaser.Math.Between(0, ORE_KEYS.length - 1);
         movement.push({ row, col, fromRow: -1 });
       }
     }
