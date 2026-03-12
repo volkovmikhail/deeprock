@@ -16,7 +16,7 @@ const config = {
   tgToken: process.env.TG_BOT_TOKEN,
   baseUrl: process.env.BASE_URL,
   useMockUser: process.env.USE_MOCK_USER === 'true',
-  mockUser: JSON.parse(process.env.MOCK_USER ?? {}),
+  mockUser: JSON.parse(process.env.MOCK_USER ?? '{}'),
 };
 
 function checkConfig(config) {
