@@ -1,9 +1,18 @@
-const config = require("../config/env");
+const config = require('../config/env');
 const crypto = require('crypto');
 
 const BOT_TOKEN = config.tgToken;
+const USE_MOCK_USER = config.useMockUser;
+const MOCK_USER = config.mockUser;
 
 function authenticate(req, res, next) {
+  if (USE_MOCK_USER) {
+    req.tgUser = MOCK_USER;
+
+    next();
+    return;
+  }
+
   const initData = req.headers['auth'];
 
   if (!initData || typeof initData !== 'string') {

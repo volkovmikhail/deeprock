@@ -5,13 +5,15 @@ async function createUserTable() {
     // Create users table with UUID
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
-        id VARCHAR(255) PRIMARY KEY NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL,
+        tg_id VARCHAR(255) PRIMARY KEY NOT NULL,
+        first_name VARCHAR(255) NULL,
+        last_name VARCHAR(255) NULL,
+        username VARCHAR(255) NOT NULL,
+        language_code VARCHAR(255) NOT NULL,
+        photo_url VARCHAR(255) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-        UNIQUE KEY unique_user_email (email, is_deleted)
+        is_deleted BOOLEAN NOT NULL DEFAULT FALSE
       )
     `);
   });

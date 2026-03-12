@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Telegram Data</title>
     <style>
       body {
@@ -43,23 +43,32 @@
       const backendDiv = document.getElementById('backend');
 
       // Show WebApp object
-      webappDiv.textContent = JSON.stringify(window.Telegram?.WebApp || {}, null, 2);
+      webappDiv.textContent = JSON.stringify(
+        window.Telegram
+        ?.WebApp || {},
+      null,
+      2);
 
       async function load() {
-        const tg = window.Telegram?.WebApp;
+        const tg = window.Telegram
+          ?.WebApp;
 
         // Show user data
-        userDiv.textContent = JSON.stringify(tg?.initDataUnsafe || {}, null, 2);
+        userDiv.textContent = JSON.stringify(
+          tg
+          ?.initDataUnsafe || {},
+        null,
+        2);
 
         // Get backend data
         try {
           const res = await fetch('/api/user/profile', {
-            method: 'POST',
+            method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              auth: tg?.initData || '',
-            },
-            body: JSON.stringify({}),
+              auth: tg
+                ?.initData || ''
+            }
           });
           const data = await res.json();
           backendDiv.textContent = JSON.stringify(data, null, 2);
