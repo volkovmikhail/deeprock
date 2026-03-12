@@ -3,40 +3,66 @@
   <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Document</title>
+    <title>Telegram Data</title>
+    <style>
+      body {
+        font-family: monospace;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+      .data {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        white-space: pre-wrap;
+        max-height: 400px;
+        overflow: auto;
+      }
+      h3 { margin-top: 20px; }
+    </style>
   </head>
   <body>
-    <div id="data"></div>
+    <h1>Telegram App Data</h1>
+    
+    <h3>WebApp Object:</h3>
+    <div id="webapp" class="data"></div>
+    
+    <h3>User Data:</h3>
+    <div id="user" class="data"></div>
+    
+    <h3>Backend Response:</h3>
+    <div id="backend" class="data"></div>
+
     <script>
-      document
-        .querySelector('#data')
-        .innerHTML = JSON
-        .stringify(window.Telegram.WebApp)
+      const webappDiv = document.getElementById('webapp');
+      const userDiv = document.getElementById('user');
+      const backendDiv = document.getElementById('backend');
 
-      async function start() {
-        const tg = window.Telegram.WebApp;
+      // Show WebApp object
+      webappDiv.textContent = JSON.stringify(window.Telegram?.WebApp || {}, null, 2);
 
-        console.log(window.Telegram);
+      async function load() {
+        const tg = window.Telegram?.WebApp;
+        
+        // Show user data
+        userDiv.textContent = JSON.stringify(tg?.initDataUnsafe || {}, null, 2);
 
-        // Расшифровываем данные (Telegram уже все подготовил)
-        const initData = tg.initData; // Сырая строка: query_id=...&user=...
-        const initDataUnsafe = tg.initDataUnsafe; // Распарсенный объект
-
-        // Отправляем на бэкенд
-        const data = await fetch('/api/user/profile', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({initData: initData}), // ← отправляем строку
-        });
-
-        document
-          .querySelector('#data')
-          .innerHTML = JSON.stringify(await data.json())
+        // Get backend data
+        try {
+          const res = await fetch('/api/user/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ initData: tg?.initData })
+          });
+          const data = await res.json();
+          backendDiv.textContent = JSON.stringify(data, null, 2);
+        } catch (e) {
+          backendDiv.textContent = 'Error: ' + e.message;
+        }
       }
 
-      start()
+      load();
     </script>
   </body>
 </html>
