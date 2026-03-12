@@ -1,13 +1,14 @@
 const { Router } = require('express');
-const config = require('../config/env');
 
 const userRouter = Router();
 
-
 userRouter.get('/profile', (req, res) => {
-
-})
+  res.json({
+    user: req.tgUser,
+    data: req.tgData,
+  });
+});
 
 module.exports = {
-  userRouter
-}
+  userRouter,
+};

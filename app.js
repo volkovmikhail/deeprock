@@ -9,10 +9,11 @@ const { globalErrorMiddleware, LocalError } = require('./middlewares/error-handl
 const { authenticate } = require('./middlewares/auth');
 const path = require('path');
 
+const { apiRouter } = require('./api/api');
+
 const app = express();
 
 const config = require('./config/env');
-const { userRouter } = require('./api/user-router'); //todo: сделать единый в api
 const { bot } = require('./bot/bot');
 
 const httpPort = config.httpPort;
@@ -49,13 +50,11 @@ app.use(
 );
 
 // Authentication middleware
-app.use(authenticate);
-
 // ---------
 // Routes
 // ---------
 
-app.use(basePath + '/', userRouter);
+app.use(basePath + '/api', authenticate, apiRouter);
 
 app.get(basePath + '/', (req, res) => {
   res.status(200).json({
