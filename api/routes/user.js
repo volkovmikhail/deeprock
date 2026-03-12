@@ -2,7 +2,7 @@ const { Router } = require('express');
 
 const userRouter = Router();
 
-userRouter.get('/profile', (req, res) => {
+userRouter.post('/profile', (req, res) => {
   res.json({
     user: req.tgUser,
     data: req.tgData,
