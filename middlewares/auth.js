@@ -15,8 +15,6 @@ function authenticate(req, res, next) {
 
   const initData = req.headers['auth'];
 
-  console.log(req.headers);
-
   if (!initData || typeof initData !== 'string') {
     return res.status(401).json({ error: 'No initData provided in auth header' });
   }
