@@ -55,8 +55,11 @@
         try {
           const res = await fetch('/api/user/profile', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ initData: tg?.initData }),
+            headers: {
+              'Content-Type': 'application/json',
+              auth: tg?.initData || '',
+            },
+            body: JSON.stringify({}),
           });
           const data = await res.json();
           backendDiv.textContent = JSON.stringify(data, null, 2);

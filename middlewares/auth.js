@@ -4,10 +4,10 @@ const crypto = require('crypto');
 const BOT_TOKEN = config.tgToken;
 
 function authenticate(req, res, next) {
-  const { initData } = req.body;
+  const initData = req.headers['auth'];
 
-  if (!initData) {
-    return res.status(401).json({ error: 'No initData provided' });
+  if (!initData || typeof initData !== 'string') {
+    return res.status(401).json({ error: 'No initData provided in auth header' });
   }
 
   // Парсим initData в объект
