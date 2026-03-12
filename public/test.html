@@ -8,6 +8,11 @@
   <body>
     <div id="data"></div>
     <script>
+      document
+        .querySelector('#data')
+        .innerHTML = JSON
+        .stringify(window.Telegram.WebApp)
+
       async function start() {
         const tg = window.Telegram.WebApp;
 
@@ -18,7 +23,7 @@
         const initDataUnsafe = tg.initDataUnsafe; // Распарсенный объект
 
         // Отправляем на бэкенд
-        const data = await fetch('api/user/profile', {
+        const data = await fetch('/api/user/profile', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
