@@ -1,29 +1,37 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Document</title>
   </head>
   <body>
     <div id="data"></div>
     <script>
-      const tg = window.Telegram.WebApp;
+      async start() {
+        const tg = window.Telegram.WebApp;
 
-      console.log(window.Telegram);
+        console.log(window.Telegram);
 
-      // Расшифровываем данные (Telegram уже все подготовил)
-      const initData = tg.initData; // Сырая строка: query_id=...&user=...
-      const initDataUnsafe = tg.initDataUnsafe; // Распарсенный объект
+        // Расшифровываем данные (Telegram уже все подготовил)
+        const initData = tg.initData; // Сырая строка: query_id=...&user=...
+        const initDataUnsafe = tg.initDataUnsafe; // Распарсенный объект
 
-      // Отправляем на бэкенд
-      const data = await fetch('api/user/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initData: initData }), // ← отправляем строку
-      });
+        // Отправляем на бэкенд
+        const data = await fetch('api/user/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({initData: initData}), // ← отправляем строку
+        });
 
-      document.querySelector('#data').innerHTML = JSON.stringify(await data.json())
+        document
+          .querySelector('#data')
+          .innerHTML = JSON.stringify(await data.json())
+      }
+
+      start()
     </script>
   </body>
 </html>
