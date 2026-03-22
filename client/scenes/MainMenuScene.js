@@ -1,4 +1,4 @@
-import { setImageContain, getContainRect } from '../config.js';
+import { getContainRect, isNarrowViewport, setImageContain, setImageCover } from '../config.js';
 import { username } from '../state.js';
 
 export class MainMenuScene extends Phaser.Scene {
@@ -16,20 +16,35 @@ export class MainMenuScene extends Phaser.Scene {
     const w = this.scale.width;
     const h = this.scale.height;
 
-    const bg = this.add.image(w / 2, h / 2, 'bg').setOrigin(0.5).setDepth(-2);
-    setImageContain(bg, w, h);
+    const bg = this.add
+      .image(w / 2, h / 2, 'bg')
+      .setOrigin(0.5)
+      .setDepth(-2);
+    const narrow = isNarrowViewport(w, h);
+    if (narrow) {
+      setImageCover(bg, w, h);
+    } else {
+      setImageContain(bg, w, h);
+    }
 
     const iw = bg.frame.width;
     const ih = bg.frame.height;
-    const r = getContainRect(w, h, iw, ih);
+    const r = narrow
+      ? { x: 0, y: 0, width: w, height: h }
+      : getContainRect(w, h, iw, ih);
 
     this.cameras.main.setBackgroundColor('#000000');
 
     const titleSize = Math.max(16, Math.round(r.width * 0.045));
     const subtitleSize = Math.max(14, Math.round(r.width * 0.034));
+    const hintSize = Math.max(12, Math.round(r.width * 0.028));
+    const titleY = r.y + r.height * 0.1;
+    const subtitleY = titleY + titleSize + 10;
+    const hintY = subtitleY + subtitleSize + 10;
+
     const line1 = username ? `Welcome ${username}!` : 'Welcome!';
     this.add
-      .text(r.x + r.width / 2, r.y + r.height * 0.1, line1, {
+      .text(r.x + r.width / 2, titleY, line1, {
         fontFamily: 'Arial',
         fontSize: `${titleSize}px`,
         color: '#ffffff',
@@ -37,10 +52,18 @@ export class MainMenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(r.x + r.width / 2, r.y + r.height * 0.1 + titleSize + 10, 'Lets drill some rocks!', {
+      .text(r.x + r.width / 2, subtitleY, 'Lets drill some rocks!', {
         fontFamily: 'Arial',
         fontSize: `${subtitleSize}px`,
         color: '#e0e0e0',
+        align: 'center',
+      })
+      .setOrigin(0.5);
+    this.add
+      .text(r.x + r.width / 2, hintY, 'Click on drill to start game', {
+        fontFamily: 'Arial',
+        fontSize: `${hintSize}px`,
+        color: '#b0b0b0',
         align: 'center',
       })
       .setOrigin(0.5);

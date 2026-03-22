@@ -1,4 +1,11 @@
-import { GAME_WIDTH, GAME_HEIGHT, setImageContain, getContainRect } from '../config.js';
+import {
+  GAME_WIDTH,
+  GAME_HEIGHT,
+  getContainRect,
+  isNarrowViewport,
+  setImageContain,
+  setImageCover,
+} from '../config.js';
 import { getScore, setScore } from '../state.js';
 
 export class GameScene extends Phaser.Scene {
@@ -30,12 +37,17 @@ export class GameScene extends Phaser.Scene {
     this.score = getScore();
 
     this.backgroundImage = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'bg').setOrigin(0.5);
-    setImageContain(this.backgroundImage, GAME_WIDTH, GAME_HEIGHT);
+    const narrow = isNarrowViewport(GAME_WIDTH, GAME_HEIGHT);
+    if (narrow) {
+      setImageCover(this.backgroundImage, GAME_WIDTH, GAME_HEIGHT);
+      this.bgRect = { x: 0, y: 0, width: GAME_WIDTH, height: GAME_HEIGHT };
+    } else {
+      setImageContain(this.backgroundImage, GAME_WIDTH, GAME_HEIGHT);
+      const iw = this.backgroundImage.frame.width;
+      const ih = this.backgroundImage.frame.height;
+      this.bgRect = getContainRect(GAME_WIDTH, GAME_HEIGHT, iw, ih);
+    }
     this.backgroundImage.setDepth(-2);
-
-    const iw = this.backgroundImage.frame.width;
-    const ih = this.backgroundImage.frame.height;
-    this.bgRect = getContainRect(GAME_WIDTH, GAME_HEIGHT, iw, ih);
 
     const padX = Math.max(4, this.bgRect.width * 0.02);
     const padTop = Math.max(52, this.bgRect.height * 0.1);

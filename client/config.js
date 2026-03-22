@@ -9,6 +9,19 @@ export function setImageContain(image, vw, vh) {
   image.setDisplaySize(iw * s, ih * s);
 }
 
+/** Like CSS object-fit: cover — fills viewport; may crop edges; no letterboxing from the image. */
+export function setImageCover(image, vw, vh) {
+  const iw = image.frame.width;
+  const ih = image.frame.height;
+  const s = Math.max(vw / iw, vh / ih);
+  image.setDisplaySize(iw * s, ih * s);
+}
+
+/** Portrait / «узкий» экран по ширине — там фон лучше вести как cover, без боковых полос. */
+export function isNarrowViewport(vw, vh) {
+  return vw < vh;
+}
+
 /** Axis-aligned rect of a contained image centered in (vw, vh), same math as setImageContain. */
 export function getContainRect(vw, vh, iw, ih) {
   const s = Math.min(vw / iw, vh / ih);
