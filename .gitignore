@@ -1,4 +1,4 @@
 .env
 node_modules
-public/bootstrap
+client/bootstrap
 .DS_Store

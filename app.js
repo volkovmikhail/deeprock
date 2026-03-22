@@ -24,7 +24,7 @@ app.locals.basePath = config.basePath;
 const basePath = config.basePath;
 
 app.use(morgan('dev'));
-app.use(basePath + '/', express.static(path.resolve(__dirname, 'public')));
+app.use(basePath + '/', express.static(path.resolve(__dirname, 'client')));
 app.use(basePath + '/static/shared', express.static(path.resolve(__dirname, 'shared')));
 
 app.use(express.json());
