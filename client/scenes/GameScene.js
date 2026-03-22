@@ -81,6 +81,17 @@ export class GameScene extends Phaser.Scene {
       this.scene.start('MainMenu');
     });
 
+    this.swipeGem = null;
+    this.swipePointerId = null;
+    this.swipeStartX = 0;
+    this.swipeStartY = 0;
+    /** Tap same selected gem: deselect on pointerup (so swipe from selected gem still works). */
+    this.swipeDeferSameGemTap = false;
+
+    this.input.on('pointerup', (pointer) => {
+      this.onGemPointerUp(pointer);
+    });
+
     this.createBoard();
     this.drawBoard();
   }
@@ -165,10 +176,81 @@ export class GameScene extends Phaser.Scene {
         gem.setData('col', col);
 
         gem.setInteractive({ useHandCursor: true });
-        gem.on('pointerdown', () => this.onGemClicked(gem));
+        gem.on('pointerdown', (pointer) => {
+          if (this.isSwapping) return;
+          this.swipeGem = gem;
+          this.swipePointerId = pointer.id;
+          this.swipeStartX = pointer.worldX;
+          this.swipeStartY = pointer.worldY;
+          if (this.selectedGem === gem) {
+            this.swipeDeferSameGemTap = true;
+          } else {
+            this.onGemClicked(gem);
+          }
+        });
 
         this.gemsGroup.add(gem);
       }
+    }
+  }
+
+  findGemAt(row, col) {
+    for (const g of this.gemsGroup.getChildren()) {
+      if (g.getData('row') === row && g.getData('col') === col) {
+        return g;
+      }
+    }
+    return null;
+  }
+
+  onGemPointerUp(pointer) {
+    if (!this.swipeGem || pointer.id !== this.swipePointerId) {
+      return;
+    }
+
+    const gem = this.swipeGem;
+    this.swipeGem = null;
+    this.swipePointerId = null;
+
+    const dx = pointer.worldX - this.swipeStartX;
+    const dy = pointer.worldY - this.swipeStartY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const threshold = Math.max(18, this.CELL_SIZE * 0.22);
+
+    if (dist >= threshold) {
+      this.swipeDeferSameGemTap = false;
+      let dr = 0;
+      let dc = 0;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        if (Math.abs(dx) < 1) {
+          return;
+        }
+        dc = dx > 0 ? 1 : -1;
+      } else {
+        if (Math.abs(dy) < 1) {
+          return;
+        }
+        dr = dy > 0 ? 1 : -1;
+      }
+
+      const r = gem.getData('row');
+      const c = gem.getData('col');
+      const nr = r + dr;
+      const nc = c + dc;
+      if (nr < 0 || nr >= this.GRID_ROWS || nc < 0 || nc >= this.GRID_COLS) {
+        return;
+      }
+
+      const neighbor = this.findGemAt(nr, nc);
+      if (neighbor) {
+        this.attemptAdjacentSwap(gem, neighbor);
+      }
+      return;
+    }
+
+    if (this.swipeDeferSameGemTap) {
+      this.swipeDeferSameGemTap = false;
+      this.onGemClicked(gem);
     }
   }
 
@@ -196,20 +278,25 @@ export class GameScene extends Phaser.Scene {
         return;
       }
 
-      this.isSwapping = true;
-      this.swapGems(this.selectedGem, gem, () => {
-        const matches = this.findMatches(this.board);
-        if (matches.length === 0) {
-          this.swapGems(this.selectedGem, gem, () => {
-            this.isSwapping = false;
-          });
-        } else {
-          this.handleMatches(matches);
-        }
-        this.deselectGem(this.selectedGem);
-        this.selectedGem = null;
-      });
+      this.attemptAdjacentSwap(this.selectedGem, gem);
     }
+  }
+
+  attemptAdjacentSwap(gem1, gem2) {
+    if (this.isSwapping) return;
+    this.isSwapping = true;
+    this.swapGems(gem1, gem2, () => {
+      const matches = this.findMatches(this.board);
+      if (matches.length === 0) {
+        this.swapGems(gem1, gem2, () => {
+          this.isSwapping = false;
+        });
+      } else {
+        this.handleMatches(matches);
+      }
+      this.deselectGem(this.selectedGem);
+      this.selectedGem = null;
+    });
   }
 
   selectGem(gem) {
