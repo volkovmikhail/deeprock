@@ -18,8 +18,6 @@ const { bot } = require('./bot/bot');
 
 const httpPort = config.httpPort;
 
-const isProd = config.nodeEnv === 'production';
-
 app.locals.basePath = config.basePath;
 const basePath = config.basePath;
 
@@ -44,8 +42,8 @@ app.use(helmet.xssFilter());
 
 app.use(
   cors({
-    origin: '*',
-    methods: ['GET'],
+    origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,
+    methods: ['GET', 'POST', 'OPTIONS'],
   }),
 );
 

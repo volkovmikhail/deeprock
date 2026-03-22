@@ -1,4 +1,5 @@
 import { GAME_WIDTH, GAME_HEIGHT, setImageContain, getContainRect } from '../config.js';
+import { getScore, setScore } from '../state.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -26,7 +27,7 @@ export class GameScene extends Phaser.Scene {
     this.gemsGroup = this.add.group();
     this.selectedGem = null;
     this.isSwapping = false;
-    this.score = 0;
+    this.score = getScore();
 
     this.backgroundImage = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'bg').setOrigin(0.5);
     setImageContain(this.backgroundImage, GAME_WIDTH, GAME_HEIGHT);
@@ -53,8 +54,8 @@ export class GameScene extends Phaser.Scene {
     this.scoreText = this.add
       .text(
         this.bgRect.x + this.bgRect.width / 2,
-        this.bgRect.y + Math.min(90, padTop * 0.95),
-        'Score: 0',
+        this.bgRect.y + Math.min(90, padTop * 0.95) + 16,
+        `Score: ${this.score}`,
         {
           fontFamily: 'Arial',
           fontSize: '28px',
@@ -85,6 +86,18 @@ export class GameScene extends Phaser.Scene {
   }
 
   update() {}
+
+  syncScoreDelta(amount) {
+    const tg = window?.Telegram?.WebApp;
+    fetch('/api/user/score', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        auth: tg?.initData || '',
+      },
+      body: JSON.stringify({ amount }),
+    }).catch(() => {});
+  }
 
   createBoard() {
     this.board = [];
@@ -319,8 +332,11 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    this.score += toRemove.size * 10;
+    const delta = toRemove.size * 10;
+    this.score += delta;
+    setScore(this.score);
     this.scoreText.setText(`Score: ${this.score}`);
+    this.syncScoreDelta(delta);
 
     toRemove.forEach((key) => {
       const [r, c] = key.split(',').map(Number);

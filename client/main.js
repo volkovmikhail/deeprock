@@ -1,5 +1,5 @@
 import { createGameConfig } from './config.js';
-import { setUsername } from './state.js';
+import { setUsername, setScore } from './state.js';
 import { MainMenuScene } from './scenes/MainMenuScene.js';
 import { GameScene } from './scenes/GameScene.js';
 
@@ -17,6 +17,7 @@ fetch('/api/user/profile', {
   })
   .then((user) => {
     setUsername(user.username);
+    setScore(user.score ?? 0);
 
     const config = createGameConfig([MainMenuScene, GameScene]);
     new Phaser.Game(config);
