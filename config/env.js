@@ -15,10 +15,7 @@ const config = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   tgToken: process.env.TG_BOT_TOKEN,
   baseUrl: process.env.BASE_URL,
-  corsOrigins: (process.env.CORS_ORIGINS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean),
+  corsOrigin: process.env.BASE_URL ?? '',
   useMockUser: process.env.USE_MOCK_USER === 'true',
   mockUser: JSON.parse(process.env.MOCK_USER ?? '{}'),
 };

@@ -42,7 +42,7 @@ app.use(helmet.xssFilter());
 
 app.use(
   cors({
-    origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,
+    origin: config.corsOrigin,
     methods: ['GET', 'POST', 'OPTIONS'],
   }),
 );
