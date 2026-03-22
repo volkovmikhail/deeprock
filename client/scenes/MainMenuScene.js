@@ -1,3 +1,6 @@
+import { setImageContain, getContainRect } from '../config.js';
+import { username } from '../state.js';
+
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
     super('MainMenu');
@@ -6,22 +9,48 @@ export class MainMenuScene extends Phaser.Scene {
   preload() {
     this.load.image('bg', 'assets/bg.png');
     this.load.image('drill', 'assets/drill.webp');
+    this.load.image('factory', 'assets/factory.webp');
   }
 
   create() {
     const w = this.scale.width;
     const h = this.scale.height;
 
-    this.add
-      .image(w / 2, h / 2, 'bg')
-      .setOrigin(0.5)
-      .setDisplaySize(w, h)
-      .setDepth(-2);
+    const bg = this.add.image(w / 2, h / 2, 'bg').setOrigin(0.5).setDepth(-2);
+    setImageContain(bg, w, h);
+
+    const iw = bg.frame.width;
+    const ih = bg.frame.height;
+    const r = getContainRect(w, h, iw, ih);
 
     this.cameras.main.setBackgroundColor('#000000');
 
-    const drill = this.add.image(w / 2, h * 0.58, 'drill').setOrigin(0.5);
-    const maxSide = Math.min(w * 0.55, h * 0.42);
+    const titleSize = Math.max(16, Math.round(r.width * 0.045));
+    const subtitleSize = Math.max(14, Math.round(r.width * 0.034));
+    const line1 = username ? `Welcome ${username}!` : 'Welcome!';
+    this.add
+      .text(r.x + r.width / 2, r.y + r.height * 0.1, line1, {
+        fontFamily: 'Arial',
+        fontSize: `${titleSize}px`,
+        color: '#ffffff',
+        align: 'center',
+      })
+      .setOrigin(0.5);
+    this.add
+      .text(r.x + r.width / 2, r.y + r.height * 0.1 + titleSize + 10, 'Lets drill some rocks!', {
+        fontFamily: 'Arial',
+        fontSize: `${subtitleSize}px`,
+        color: '#e0e0e0',
+        align: 'center',
+      })
+      .setOrigin(0.5);
+
+    const factory = this.add.image(r.x + r.width * 0.25, r.y + r.height * 0.62, 'factory').setOrigin(0.5);
+    let maxSide = Math.min(r.width * 0.754, r.height * 0.442);
+    factory.setScale(maxSide / Math.max(factory.width, factory.height));
+
+    const drill = this.add.image(r.x + r.width * 0.76, r.y + r.height * 0.68, 'drill').setOrigin(0.5);
+    maxSide = Math.min(r.width * 0.55, r.height * 0.35);
     drill.setScale(maxSide / Math.max(drill.width, drill.height));
 
     drill.setInteractive({ useHandCursor: true });

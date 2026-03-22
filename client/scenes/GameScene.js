@@ -1,5 +1,4 @@
-import { GAME_WIDTH, GAME_HEIGHT } from '../config.js';
-import { username } from '../state.js';
+import { GAME_WIDTH, GAME_HEIGHT, setImageContain, getContainRect } from '../config.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -20,8 +19,6 @@ export class GameScene extends Phaser.Scene {
   create() {
     this.GRID_ROWS = 8;
     this.GRID_COLS = 8;
-    this.CELL_SIZE =
-      GAME_HEIGHT > GAME_WIDTH ? GAME_WIDTH / (this.GRID_COLS + 2) : GAME_HEIGHT / (this.GRID_ROWS + 2);
 
     this.ORE_KEYS = ['ore_copper', 'ore_gold', 'ore_emerald', 'ore_lapis', 'ore_ruby', 'ore_silver'];
 
@@ -31,25 +28,60 @@ export class GameScene extends Phaser.Scene {
     this.isSwapping = false;
     this.score = 0;
 
-    this.backgroundImage = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'bg')
-      .setOrigin(0.5);
-    this.backgroundImage.setDisplaySize(GAME_WIDTH, GAME_HEIGHT);
+    this.backgroundImage = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'bg').setOrigin(0.5);
+    setImageContain(this.backgroundImage, GAME_WIDTH, GAME_HEIGHT);
     this.backgroundImage.setDepth(-2);
+
+    const iw = this.backgroundImage.frame.width;
+    const ih = this.backgroundImage.frame.height;
+    this.bgRect = getContainRect(GAME_WIDTH, GAME_HEIGHT, iw, ih);
+
+    const padX = Math.max(4, this.bgRect.width * 0.02);
+    const padTop = Math.max(52, this.bgRect.height * 0.1);
+    const padBottom = Math.max(8, this.bgRect.height * 0.02);
+    const innerW = this.bgRect.width - 2 * padX;
+    const innerH = this.bgRect.height - padTop - padBottom;
+
+    this.CELL_SIZE = Math.min(innerW / this.GRID_COLS, innerH / this.GRID_ROWS);
+    this.boardOffsetX =
+      this.bgRect.x + padX + (innerW - this.GRID_COLS * this.CELL_SIZE) / 2;
+    this.boardOffsetY =
+      this.bgRect.y + padTop + (innerH - this.GRID_ROWS * this.CELL_SIZE) / 2;
 
     this.cameras.main.setBackgroundColor('#000000');
 
-    this.createBoard();
-    this.drawBoard();
-
     this.scoreText = this.add
-      .text(GAME_WIDTH / 2, 40, `${username ?? ''}'s Score: 0`, {
-        fontFamily: 'Arial',
-        fontSize: '28px',
-        color: '#ffffff',
-      })
+      .text(
+        this.bgRect.x + this.bgRect.width / 2,
+        this.bgRect.y + Math.min(90, padTop * 0.95),
+        'Score: 0',
+        {
+          fontFamily: 'Arial',
+          fontSize: '28px',
+          color: '#ffffff',
+        },
+      )
       .setOrigin(0.5)
       .setDepth(10);
+
+    const menuFont = Math.max(13, Math.round(this.bgRect.width * 0.032));
+    const menuBtn = this.add
+      .text(this.bgRect.x + this.bgRect.width - 10, this.bgRect.y + 10, 'Main menu', {
+        fontFamily: 'Arial',
+        fontSize: `${menuFont}px`,
+        color: '#eeeeee',
+        backgroundColor: '#2d2d3d',
+        padding: { x: 10, y: 6 },
+      })
+      .setOrigin(1, 0)
+      .setDepth(11)
+      .setInteractive({ useHandCursor: true });
+    menuBtn.on('pointerdown', () => {
+      this.scene.start('MainMenu');
+    });
+
+    this.createBoard();
+    this.drawBoard();
   }
 
   update() {}
@@ -82,8 +114,8 @@ export class GameScene extends Phaser.Scene {
   drawBoard(movement = []) {
     this.gemsGroup.clear(true, true);
 
-    const offsetX = (GAME_WIDTH - this.GRID_COLS * this.CELL_SIZE) / 2;
-    const offsetY = 100;
+    const offsetX = this.boardOffsetX;
+    const offsetY = this.boardOffsetY;
 
     const movementMap = new Map();
     movement.forEach((cell) => {
@@ -288,7 +320,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.score += toRemove.size * 10;
-    this.scoreText.setText(`${username ?? ''}'s Score: ${this.score}`);
+    this.scoreText.setText(`Score: ${this.score}`);
 
     toRemove.forEach((key) => {
       const [r, c] = key.split(',').map(Number);
