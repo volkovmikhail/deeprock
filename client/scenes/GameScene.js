@@ -6,6 +6,7 @@ import {
   setImageContain,
   setImageCover,
 } from '../config.js';
+import { hapticGemBreak } from '../haptics.js';
 import { getScore, setScore } from '../state.js';
 
 export class GameScene extends Phaser.Scene {
@@ -430,6 +431,10 @@ export class GameScene extends Phaser.Scene {
         }
       }
     });
+
+    if (toRemove.size > 0) {
+      hapticGemBreak();
+    }
 
     const delta = toRemove.size * 10;
     this.score += delta;
