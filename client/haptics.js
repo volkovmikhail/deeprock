@@ -3,7 +3,7 @@ export function hapticGemBreak() {
   const tg = window.Telegram?.WebApp;
   if (tg?.HapticFeedback?.impactOccurred) {
     try {
-      tg.HapticFeedback.impactOccurred('light');
+      tg.HapticFeedback.impactOccurred('rigid');
       return;
     } catch {
       /* ignore */
