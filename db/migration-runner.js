@@ -1,6 +1,6 @@
 const db = require('./database');
 const { createUserTable } = require('./migrations/2025-11-02-14-24-create-user-table');
-const { addUserScoreColumn } = require('./migrations/2025-03-22-add-user-score');
+const { addUserScoreColumn } = require('./migrations/2026-03-22-add-user-score');
 
 // Array of migrations - add new migrations here
 const migrations = [
