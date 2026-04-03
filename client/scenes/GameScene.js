@@ -1,7 +1,6 @@
 import {
   GAME_WIDTH,
   GAME_HEIGHT,
-  getContainRect,
   isNarrowViewport,
   setImageContain,
   setImageCover,
@@ -9,13 +8,31 @@ import {
 import { hapticGemBreak } from '../haptics.js';
 import { getScore, setScore } from '../state.js';
 
+/** Масштаб рамки после contain (чуть >1 — немного шире/выше всплывающий декор). */
+const BORDER_FRAME_SCALE = 1.1;
+
+/** Макс. ширина рамки относительно ширины backdrop (1 = не шире фона; чуть >1 — допустимый люфт). */
+const BORDER_MAX_WIDTH_VS_BACKDROP = 1.10;
+
+/**
+ * Внутреннее «окно» под поле: доли от размера спрайта рамки (толщина декора по краям текстуры).
+ * Подогнано под border_frame.webp ~928×1232.
+ */
+const FRAME_INNER_PAD_X_RATIO = 0.22;
+const FRAME_INNER_PAD_TOP_RATIO = 0.2;
+const FRAME_INNER_PAD_BOTTOM_RATIO = 0.1;
+const FRAME_INNER_PAD_X_MIN = 10;
+const FRAME_INNER_PAD_TOP_MIN = 70;
+const FRAME_INNER_PAD_BOTTOM_MIN = 12;
+
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('Game');
   }
 
   preload() {
-    this.load.image('bg', 'assets/bg.png');
+    this.load.image('game_backdrop', 'assets/bg.png');
+    this.load.image('game_border_bg', 'assets/border_frame.webp');
 
     this.load.image('ore_copper', 'assets/copper_ore.webp');
     this.load.image('ore_gold', 'assets/gold_ore.webp');
@@ -37,22 +54,45 @@ export class GameScene extends Phaser.Scene {
     this.isSwapping = false;
     this.score = getScore();
 
-    this.backgroundImage = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'bg').setOrigin(0.5);
     const narrow = isNarrowViewport(GAME_WIDTH, GAME_HEIGHT);
-    if (narrow) {
-      setImageCover(this.backgroundImage, GAME_WIDTH, GAME_HEIGHT);
-      this.bgRect = { x: 0, y: 0, width: GAME_WIDTH, height: GAME_HEIGHT };
-    } else {
-      setImageContain(this.backgroundImage, GAME_WIDTH, GAME_HEIGHT);
-      const iw = this.backgroundImage.frame.width;
-      const ih = this.backgroundImage.frame.height;
-      this.bgRect = getContainRect(GAME_WIDTH, GAME_HEIGHT, iw, ih);
-    }
-    this.backgroundImage.setDepth(-2);
 
-    const padX = Math.max(4, this.bgRect.width * 0.02);
-    const padTop = Math.max(52, this.bgRect.height * 0.1);
-    const padBottom = Math.max(8, this.bgRect.height * 0.02);
+    const backdrop = this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'game_backdrop')
+      .setOrigin(0.5)
+      .setDepth(-3);
+    if (narrow) {
+      setImageCover(backdrop, GAME_WIDTH, GAME_HEIGHT);
+    } else {
+      setImageContain(backdrop, GAME_WIDTH, GAME_HEIGHT);
+    }
+
+    const border = this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'game_border_bg')
+      .setOrigin(0.5)
+      .setDepth(-2);
+    setImageContain(border, GAME_WIDTH, GAME_HEIGHT);
+    border.setDisplaySize(
+      border.displayWidth * BORDER_FRAME_SCALE,
+      border.displayHeight * BORDER_FRAME_SCALE,
+    );
+    const maxBorderW = backdrop.displayWidth * BORDER_MAX_WIDTH_VS_BACKDROP;
+    if (border.displayWidth > maxBorderW) {
+      const s = maxBorderW / border.displayWidth;
+      border.setDisplaySize(border.displayWidth * s, border.displayHeight * s);
+    }
+    this.bgRect = {
+      x: (GAME_WIDTH - border.displayWidth) / 2,
+      y: (GAME_HEIGHT - border.displayHeight) / 2,
+      width: border.displayWidth,
+      height: border.displayHeight,
+    };
+
+    const padX = Math.max(FRAME_INNER_PAD_X_MIN, this.bgRect.width * FRAME_INNER_PAD_X_RATIO);
+    const padTop = Math.max(FRAME_INNER_PAD_TOP_MIN, this.bgRect.height * FRAME_INNER_PAD_TOP_RATIO);
+    const padBottom = Math.max(
+      FRAME_INNER_PAD_BOTTOM_MIN,
+      this.bgRect.height * FRAME_INNER_PAD_BOTTOM_RATIO,
+    );
     const innerW = this.bgRect.width - 2 * padX;
     const innerH = this.bgRect.height - padTop - padBottom;
 
@@ -67,7 +107,7 @@ export class GameScene extends Phaser.Scene {
     this.scoreText = this.add
       .text(
         this.bgRect.x + this.bgRect.width / 2,
-        this.bgRect.y + Math.min(90, padTop * 0.95) + 16,
+        this.bgRect.y + Math.min(90, padTop * 0.95) + 44,
         `Score: ${this.score}`,
         {
           fontFamily: 'Arial',
@@ -79,8 +119,9 @@ export class GameScene extends Phaser.Scene {
       .setDepth(10);
 
     const menuFont = Math.max(13, Math.round(this.bgRect.width * 0.032));
+    const menuBtnY = Math.max(2, this.bgRect.y - 32);
     const menuBtn = this.add
-      .text(this.bgRect.x + this.bgRect.width - 10, this.bgRect.y + 10, 'Main menu', {
+      .text(this.bgRect.x + this.bgRect.width - 10, menuBtnY, 'Main menu', {
         fontFamily: 'Arial',
         fontSize: `${menuFont}px`,
         color: '#eeeeee',
