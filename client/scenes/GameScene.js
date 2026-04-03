@@ -121,7 +121,7 @@ export class GameScene extends Phaser.Scene {
     const menuFont = Math.max(13, Math.round(this.bgRect.width * 0.032));
     const menuBtnY = Math.max(2, this.bgRect.y - 32);
     const menuBtn = this.add
-      .text(this.bgRect.x + this.bgRect.width - 10, menuBtnY, 'Main menu', {
+      .text(this.bgRect.x + this.bgRect.width - 50, menuBtnY, 'Main menu', {
         fontFamily: 'Arial',
         fontSize: `${menuFont}px`,
         color: '#eeeeee',
