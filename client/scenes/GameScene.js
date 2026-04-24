@@ -26,7 +26,7 @@ const FRAME_INNER_PAD_TOP_MIN = 70;
 const FRAME_INNER_PAD_BOTTOM_MIN = 12;
 const FALL_ANIMATION_DURATION = 360;
 const MATCH_RESOLVE_DELAY = 420;
-const MAX_PARALLEL_SWAPS = 2;
+const MAX_PARALLEL_SWAPS = 5;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -46,7 +46,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.GRID_ROWS = 6;
+    this.GRID_ROWS = 9;
     this.GRID_COLS = 6;
 
     this.ORE_KEYS = ['ore_copper', 'ore_gold', 'ore_emerald', 'ore_lapis', 'ore_ruby', 'ore_silver'];
@@ -109,18 +109,20 @@ export class GameScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor('#000000');
 
+    const scoreFont = Math.max(18, Math.min(34, Math.round(this.bgRect.width * 0.06)));
+
     this.scoreText = this.add
       .text(
-        this.bgRect.x + this.bgRect.width / 2,
-        this.bgRect.y + Math.min(90, padTop * 0.95) + 44,
+        this.bgRect.x + 44,
+        Math.max(16, this.bgRect.y - 16),
         `Score: ${this.score}`,
         {
           fontFamily: 'Arial',
-          fontSize: '28px',
+          fontSize: `${scoreFont}px`,
           color: '#ffffff',
         },
       )
-      .setOrigin(0.5)
+      .setOrigin(0, 0.5)
       .setDepth(10);
 
     const menuFont = Math.max(13, Math.round(this.bgRect.width * 0.032));
