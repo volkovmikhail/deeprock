@@ -24,6 +24,8 @@ const FRAME_INNER_PAD_BOTTOM_RATIO = 0.1;
 const FRAME_INNER_PAD_X_MIN = 10;
 const FRAME_INNER_PAD_TOP_MIN = 70;
 const FRAME_INNER_PAD_BOTTOM_MIN = 12;
+const FALL_ANIMATION_DURATION = 360;
+const MATCH_RESOLVE_DELAY = 420;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -43,15 +45,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    this.GRID_ROWS = 8;
-    this.GRID_COLS = 8;
+    this.GRID_ROWS = 6;
+    this.GRID_COLS = 6;
 
     this.ORE_KEYS = ['ore_copper', 'ore_gold', 'ore_emerald', 'ore_lapis', 'ore_ruby', 'ore_silver'];
 
     this.board = [];
     this.gemsGroup = this.add.group();
     this.selectedGem = null;
-    this.isSwapping = false;
+    this.isResolvingBoard = false;
     this.score = getScore();
 
     const narrow = isNarrowViewport(GAME_WIDTH, GAME_HEIGHT);
@@ -199,7 +201,7 @@ export class GameScene extends Phaser.Scene {
     movement.forEach((cell) => {
       movementMap.set(`${cell.row},${cell.col}`, cell.fromRow);
     });
-    const fallDuration = 220;
+    const fallDuration = FALL_ANIMATION_DURATION;
 
     for (let row = 0; row < this.GRID_ROWS; row++) {
       for (let col = 0; col < this.GRID_COLS; col++) {
@@ -228,10 +230,11 @@ export class GameScene extends Phaser.Scene {
 
         gem.setData('row', row);
         gem.setData('col', col);
+        gem.setData('isAnimating', false);
 
         gem.setInteractive({ useHandCursor: true });
         gem.on('pointerdown', (pointer) => {
-          if (this.isSwapping) return;
+          if (this.isResolvingBoard || gem.getData('isAnimating')) return;
           this.swipeGem = gem;
           this.swipePointerId = pointer.id;
           this.swipeStartX = pointer.worldX;
@@ -309,7 +312,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   onGemClicked(gem) {
-    if (this.isSwapping) return;
+    if (this.isResolvingBoard || gem.getData('isAnimating')) return;
 
     if (!this.selectedGem) {
       this.selectGem(gem);
@@ -337,15 +340,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   attemptAdjacentSwap(gem1, gem2) {
-    if (this.isSwapping) return;
-    this.isSwapping = true;
+    if (this.isResolvingBoard) return;
+    if (gem1.getData('isAnimating') || gem2.getData('isAnimating')) return;
     this.swapGems(gem1, gem2, () => {
+      if (this.isResolvingBoard) {
+        return;
+      }
       const matches = this.findMatches(this.board);
       if (matches.length === 0) {
-        this.swapGems(gem1, gem2, () => {
-          this.isSwapping = false;
-        });
+        this.swapGems(gem1, gem2, () => {});
       } else {
+        this.isResolvingBoard = true;
         this.handleMatches(matches);
       }
       this.deselectGem(this.selectedGem);
@@ -379,6 +384,16 @@ export class GameScene extends Phaser.Scene {
     gem2.setData('col', c1);
 
     const tweenDuration = 150;
+    gem1.setData('isAnimating', true);
+    gem2.setData('isAnimating', true);
+    let completedTweens = 0;
+    const finalizeSwap = () => {
+      completedTweens += 1;
+      if (completedTweens < 2) return;
+      gem1.setData('isAnimating', false);
+      gem2.setData('isAnimating', false);
+      onComplete();
+    };
 
     this.tweens.add({
       targets: gem1,
@@ -386,6 +401,7 @@ export class GameScene extends Phaser.Scene {
       y: gem2.y,
       duration: tweenDuration,
       ease: 'Quad.easeInOut',
+      onComplete: finalizeSwap,
     });
 
     this.tweens.add({
@@ -394,7 +410,7 @@ export class GameScene extends Phaser.Scene {
       y: gem1.y,
       duration: tweenDuration,
       ease: 'Quad.easeInOut',
-      onComplete,
+      onComplete: finalizeSwap,
     });
   }
 
@@ -518,12 +534,12 @@ export class GameScene extends Phaser.Scene {
 
     this.drawBoard(movement);
 
-    this.time.delayedCall(260, () => {
+    this.time.delayedCall(MATCH_RESOLVE_DELAY, () => {
       const newMatches = this.findMatches(this.board);
       if (newMatches.length > 0) {
         this.handleMatches(newMatches);
       } else {
-        this.isSwapping = false;
+        this.isResolvingBoard = false;
       }
     });
   }
