@@ -26,6 +26,7 @@ const FRAME_INNER_PAD_TOP_MIN = 70;
 const FRAME_INNER_PAD_BOTTOM_MIN = 12;
 const FALL_ANIMATION_DURATION = 360;
 const MATCH_RESOLVE_DELAY = 420;
+const MAX_PARALLEL_SWAPS = 2;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -54,6 +55,8 @@ export class GameScene extends Phaser.Scene {
     this.gemsGroup = this.add.group();
     this.selectedGem = null;
     this.isResolvingBoard = false;
+    this.activeSwapCount = 0;
+    this.swapBatch = [];
     this.score = getScore();
 
     const narrow = isNarrowViewport(GAME_WIDTH, GAME_HEIGHT);
@@ -313,6 +316,9 @@ export class GameScene extends Phaser.Scene {
 
   onGemClicked(gem) {
     if (this.isResolvingBoard || gem.getData('isAnimating')) return;
+    if (this.selectedGem && this.selectedGem.getData('isAnimating')) {
+      this.selectedGem = null;
+    }
 
     if (!this.selectedGem) {
       this.selectGem(gem);
@@ -341,21 +347,54 @@ export class GameScene extends Phaser.Scene {
 
   attemptAdjacentSwap(gem1, gem2) {
     if (this.isResolvingBoard) return;
+    if (this.activeSwapCount >= MAX_PARALLEL_SWAPS) return;
     if (gem1.getData('isAnimating') || gem2.getData('isAnimating')) return;
+    this.activeSwapCount += 1;
+    this.swapBatch.push({ gem1, gem2 });
     this.swapGems(gem1, gem2, () => {
-      if (this.isResolvingBoard) {
+      this.finalizeSwapStep();
+    });
+    this.deselectGem(this.selectedGem);
+    this.selectedGem = null;
+  }
+
+  finalizeSwapStep() {
+    if (this.isResolvingBoard || this.activeSwapCount > 0) {
+      return;
+    }
+
+    const matches = this.findMatches(this.board);
+    if (matches.length > 0) {
+      this.swapBatch = [];
+      this.isResolvingBoard = true;
+      this.handleMatches(matches);
+      return;
+    }
+
+    this.revertSwapBatch();
+  }
+
+  revertSwapBatch() {
+    if (this.swapBatch.length === 0) return;
+
+    this.isResolvingBoard = true;
+    const swapsToRevert = this.swapBatch.slice().reverse();
+    this.swapBatch = [];
+
+    const runNextRevert = () => {
+      if (swapsToRevert.length === 0) {
+        this.isResolvingBoard = false;
         return;
       }
-      const matches = this.findMatches(this.board);
-      if (matches.length === 0) {
-        this.swapGems(gem1, gem2, () => {});
-      } else {
-        this.isResolvingBoard = true;
-        this.handleMatches(matches);
-      }
-      this.deselectGem(this.selectedGem);
-      this.selectedGem = null;
-    });
+
+      const { gem1, gem2 } = swapsToRevert.shift();
+      this.activeSwapCount += 1;
+      this.swapGems(gem1, gem2, () => {
+        runNextRevert();
+      });
+    };
+
+    runNextRevert();
   }
 
   selectGem(gem) {
@@ -392,6 +431,7 @@ export class GameScene extends Phaser.Scene {
       if (completedTweens < 2) return;
       gem1.setData('isAnimating', false);
       gem2.setData('isAnimating', false);
+      this.activeSwapCount = Math.max(0, this.activeSwapCount - 1);
       onComplete();
     };
 
