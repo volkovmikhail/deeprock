@@ -20,10 +20,10 @@ const BORDER_MAX_WIDTH_VS_BACKDROP = 1.10;
  * Подогнано под border_frame.webp ~928×1232.
  */
 const FRAME_INNER_PAD_X_RATIO = 0.22;
-const FRAME_INNER_PAD_TOP_RATIO = 0.2;
+const FRAME_INNER_PAD_TOP_RATIO = 0.13;
 const FRAME_INNER_PAD_BOTTOM_RATIO = 0.1;
 const FRAME_INNER_PAD_X_MIN = 10;
-const FRAME_INNER_PAD_TOP_MIN = 70;
+const FRAME_INNER_PAD_TOP_MIN = 50;
 const FRAME_INNER_PAD_BOTTOM_MIN = 12;
 const FALL_ANIMATION_DURATION = 360;
 const MATCH_RESOLVE_DELAY = 260;
@@ -63,7 +63,7 @@ export class GameScene extends Phaser.Scene {
     const screenH = this.scale.height;
     const safeRect = getSafeViewportRect(screenW, screenH, GAME_WIDTH, GAME_HEIGHT);
 
-    this.GRID_ROWS = 9;
+    this.GRID_ROWS = 11;
     this.GRID_COLS = 6;
 
     this.ORE_KEYS = ['ore_copper', 'ore_gold', 'ore_emerald', 'ore_lapis', 'ore_ruby', 'ore_silver'];
