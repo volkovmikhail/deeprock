@@ -1,5 +1,10 @@
-export const GAME_WIDTH = window.innerWidth;
-export const GAME_HEIGHT = window.innerHeight;
+/**
+ * Canonical portrait frame used for all layout math.
+ * UI is designed against 430x932 and then fitted into a centered safe rectangle.
+ */
+export const GAME_WIDTH = 430;
+export const GAME_HEIGHT = 932;
+export const SAFE_RECT_DEBUG = false;
 
 /** Like CSS object-fit: contain — whole image visible; on tall/narrow screens it scales to max height with side bars. */
 export function setImageContain(image, vw, vh) {
@@ -35,6 +40,39 @@ export function getContainRect(vw, vh, iw, ih) {
   };
 }
 
+/**
+ * Centered fixed-aspect rectangle that fits into the current screen.
+ * Use it as the single source of truth for stable UI placement.
+ */
+export function getSafeViewportRect(screenW, screenH, targetW = GAME_WIDTH, targetH = GAME_HEIGHT) {
+  const targetAspect = targetW / targetH;
+  const screenAspect = screenW / screenH;
+
+  if (screenAspect > targetAspect) {
+    const height = screenH;
+    const width = height * targetAspect;
+    return {
+      x: (screenW - width) / 2,
+      y: 0,
+      width,
+      height,
+    };
+  }
+
+  const width = screenW;
+  const height = width / targetAspect;
+  return {
+    x: 0,
+    y: (screenH - height) / 2,
+    width,
+    height,
+  };
+}
+
+export function isSafeRectDebugEnabled() {
+  return SAFE_RECT_DEBUG;
+}
+
 export function createGameConfig(scenes) {
   return {
     type: Phaser.AUTO,
@@ -43,10 +81,10 @@ export function createGameConfig(scenes) {
       pixelArt: true,
     },
     scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: GAME_WIDTH,
-      height: GAME_HEIGHT,
+      mode: Phaser.Scale.RESIZE,
+      autoCenter: Phaser.Scale.NO_CENTER,
+      width: window.innerWidth,
+      height: window.innerHeight,
       parent: 'game-container',
     },
     scene: scenes,

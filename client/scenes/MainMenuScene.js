@@ -1,4 +1,10 @@
-import { getContainRect, isNarrowViewport, setImageContain, setImageCover } from '../config.js';
+import {
+  GAME_HEIGHT,
+  GAME_WIDTH,
+  getSafeViewportRect,
+  isSafeRectDebugEnabled,
+  setImageCover,
+} from '../config.js';
 import { username } from '../state.js';
 
 export class MainMenuScene extends Phaser.Scene {
@@ -13,38 +19,44 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   create() {
+    this.handleResize = () => {
+      this.scene.restart();
+    };
+    this.scale.on('resize', this.handleResize);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.handleResize);
+    });
+
     const w = this.scale.width;
     const h = this.scale.height;
+    const safeRect = getSafeViewportRect(w, h, GAME_WIDTH, GAME_HEIGHT);
 
     const bg = this.add
       .image(w / 2, h / 2, 'bg')
       .setOrigin(0.5)
       .setDepth(-2);
-    const narrow = isNarrowViewport(w, h);
-    if (narrow) {
-      setImageCover(bg, w, h);
-    } else {
-      setImageContain(bg, w, h);
+    setImageCover(bg, w, h);
+    const contentRect = safeRect;
+    if (isSafeRectDebugEnabled()) {
+      this.add
+        .graphics()
+        .lineStyle(3, 0xff0000, 1)
+        .strokeRect(safeRect.x, safeRect.y, safeRect.width, safeRect.height)
+        .setDepth(1000);
     }
-
-    const iw = bg.frame.width;
-    const ih = bg.frame.height;
-    const r = narrow
-      ? { x: 0, y: 0, width: w, height: h }
-      : getContainRect(w, h, iw, ih);
 
     this.cameras.main.setBackgroundColor('#000000');
 
-    const titleSize = Math.max(16, Math.round(r.width * 0.045));
-    const subtitleSize = Math.max(14, Math.round(r.width * 0.034));
-    const hintSize = Math.max(12, Math.round(r.width * 0.028));
-    const titleY = r.y + r.height * 0.1;
+    const titleSize = Math.max(16, Math.round(contentRect.width * 0.045));
+    const subtitleSize = Math.max(14, Math.round(contentRect.width * 0.034));
+    const hintSize = Math.max(12, Math.round(contentRect.width * 0.028));
+    const titleY = contentRect.y + contentRect.height * 0.1;
     const subtitleY = titleY + titleSize + 10;
     const hintY = subtitleY + subtitleSize + 10;
 
     const line1 = username ? `Welcome ${username}!` : 'Welcome!';
     this.add
-      .text(r.x + r.width / 2, titleY, line1, {
+      .text(contentRect.x + contentRect.width / 2, titleY, line1, {
         fontFamily: 'Arial',
         fontSize: `${titleSize}px`,
         color: '#ffffff',
@@ -52,7 +64,7 @@ export class MainMenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(r.x + r.width / 2, subtitleY, 'Lets drill some rocks!', {
+      .text(contentRect.x + contentRect.width / 2, subtitleY, 'Lets drill some rocks!', {
         fontFamily: 'Arial',
         fontSize: `${subtitleSize}px`,
         color: '#e0e0e0',
@@ -60,7 +72,7 @@ export class MainMenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(r.x + r.width / 2, hintY, 'Click on drill to start game', {
+      .text(contentRect.x + contentRect.width / 2, hintY, 'Click on drill to start game', {
         fontFamily: 'Arial',
         fontSize: `${hintSize}px`,
         color: '#b0b0b0',
@@ -68,12 +80,16 @@ export class MainMenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    const factory = this.add.image(r.x + r.width * 0.25, r.y + r.height * 0.62, 'factory').setOrigin(0.5);
-    let maxSide = Math.min(r.width * 0.754, r.height * 0.442);
+    const factory = this.add
+      .image(contentRect.x + contentRect.width * 0.25, contentRect.y + contentRect.height * 0.62, 'factory')
+      .setOrigin(0.5);
+    let maxSide = Math.min(contentRect.width * 0.754, contentRect.height * 0.442);
     factory.setScale(maxSide / Math.max(factory.width, factory.height));
 
-    const drill = this.add.image(r.x + r.width * 0.76, r.y + r.height * 0.68, 'drill').setOrigin(0.5);
-    maxSide = Math.min(r.width * 0.55, r.height * 0.35);
+    const drill = this.add
+      .image(contentRect.x + contentRect.width * 0.76, contentRect.y + contentRect.height * 0.68, 'drill')
+      .setOrigin(0.5);
+    maxSide = Math.min(contentRect.width * 0.55, contentRect.height * 0.35);
     drill.setScale(maxSide / Math.max(drill.width, drill.height));
 
     drill.setInteractive({ useHandCursor: true });

@@ -1,7 +1,8 @@
 import {
   GAME_WIDTH,
   GAME_HEIGHT,
-  isNarrowViewport,
+  getSafeViewportRect,
+  isSafeRectDebugEnabled,
   setImageContain,
   setImageCover,
 } from '../config.js';
@@ -48,6 +49,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    if (isSafeRectDebugEnabled()) {
+      this.handleResize = () => {
+        this.scene.restart();
+      };
+      this.scale.on('resize', this.handleResize);
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+        this.scale.off('resize', this.handleResize);
+      });
+    }
+
+    const screenW = this.scale.width;
+    const screenH = this.scale.height;
+    const safeRect = getSafeViewportRect(screenW, screenH, GAME_WIDTH, GAME_HEIGHT);
+
     this.GRID_ROWS = 9;
     this.GRID_COLS = 6;
 
@@ -64,35 +79,38 @@ export class GameScene extends Phaser.Scene {
     this.visualVersion = 0;
     this.score = getScore();
 
-    const narrow = isNarrowViewport(GAME_WIDTH, GAME_HEIGHT);
-
     const backdrop = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'game_backdrop')
+      .image(screenW / 2, screenH / 2, 'game_backdrop')
       .setOrigin(0.5)
       .setDepth(-3);
-    if (narrow) {
-      setImageCover(backdrop, GAME_WIDTH, GAME_HEIGHT);
-    } else {
-      setImageContain(backdrop, GAME_WIDTH, GAME_HEIGHT);
+    // Fill the entire real screen, including side/top gaps around safeRect.
+    setImageCover(backdrop, screenW, screenH);
+    if (isSafeRectDebugEnabled()) {
+      this.add
+        .graphics()
+        .lineStyle(3, 0xff0000, 1)
+        .strokeRect(safeRect.x, safeRect.y, safeRect.width, safeRect.height)
+        .setDepth(1000);
     }
 
     const border = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, 'game_border_bg')
+      .image(safeRect.x + safeRect.width / 2, safeRect.y + safeRect.height / 2, 'game_border_bg')
       .setOrigin(0.5)
       .setDepth(-2);
-    setImageContain(border, GAME_WIDTH, GAME_HEIGHT);
+    // Keep gameplay container geometry stable on every aspect ratio.
+    setImageContain(border, safeRect.width, safeRect.height);
     border.setDisplaySize(
       border.displayWidth * BORDER_FRAME_SCALE,
       border.displayHeight * BORDER_FRAME_SCALE,
     );
-    const maxBorderW = backdrop.displayWidth * BORDER_MAX_WIDTH_VS_BACKDROP;
+    const maxBorderW = safeRect.width * BORDER_MAX_WIDTH_VS_BACKDROP;
     if (border.displayWidth > maxBorderW) {
       const s = maxBorderW / border.displayWidth;
       border.setDisplaySize(border.displayWidth * s, border.displayHeight * s);
     }
     this.bgRect = {
-      x: (GAME_WIDTH - border.displayWidth) / 2,
-      y: (GAME_HEIGHT - border.displayHeight) / 2,
+      x: safeRect.x + (safeRect.width - border.displayWidth) / 2,
+      y: safeRect.y + (safeRect.height - border.displayHeight) / 2,
       width: border.displayWidth,
       height: border.displayHeight,
     };
