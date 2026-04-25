@@ -28,6 +28,7 @@ const FALL_ANIMATION_DURATION = 360;
 const MATCH_RESOLVE_DELAY = 260;
 const DESTROY_FADE_DURATION = 110;
 const RENDER_STEP_DELAY_MIN = 90;
+const VISUAL_RESYNC_INTERVAL_MS = 1800;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -156,6 +157,13 @@ export class GameScene extends Phaser.Scene {
 
     this.createBoard();
     this.drawBoard();
+    this.visualResyncTimer = this.time.addEvent({
+      delay: VISUAL_RESYNC_INTERVAL_MS,
+      loop: true,
+      callback: () => {
+        this.forceVisualResync();
+      },
+    });
   }
 
   update() {}
@@ -240,7 +248,6 @@ export class GameScene extends Phaser.Scene {
 
         gem.setInteractive({ useHandCursor: true });
         gem.on('pointerdown', (pointer) => {
-          if (gem.getData('isAnimating')) return;
           const swipeState = {
             gem,
             startX: pointer.worldX,
@@ -320,11 +327,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   onGemClicked(gem) {
-    if (gem.getData('isAnimating')) return;
-    if (this.selectedGem && this.selectedGem.getData('isAnimating')) {
-      this.selectedGem = null;
-    }
-
     if (!this.selectedGem) {
       this.selectGem(gem);
     } else if (this.selectedGem === gem) {
@@ -351,7 +353,6 @@ export class GameScene extends Phaser.Scene {
   }
 
   attemptAdjacentSwap(gem1, gem2) {
-    if (gem1.getData('isAnimating') || gem2.getData('isAnimating')) return;
     // Any new player swap invalidates previously queued visual cascade frames.
     this.visualVersion += 1;
     this.renderQueue = [];
@@ -400,7 +401,7 @@ export class GameScene extends Phaser.Scene {
       const { r1, c1, r2, c2 } = swapsToRevert.shift();
       const gem1 = this.findGemAt(r1, c1);
       const gem2 = this.findGemAt(r2, c2);
-      if (!gem1 || !gem2 || gem1.getData('isAnimating') || gem2.getData('isAnimating')) {
+      if (!gem1 || !gem2) {
         runNextRevert();
         return;
       }
@@ -686,5 +687,22 @@ export class GameScene extends Phaser.Scene {
     const queuePressure = this.renderQueue.length;
     const speedup = Math.min(140, queuePressure * 18);
     return Math.max(RENDER_STEP_DELAY_MIN, MATCH_RESOLVE_DELAY - speedup);
+  }
+
+  forceVisualResync() {
+    const hasAnimatingGems = this.gemsGroup
+      .getChildren()
+      .some((gem) => gem && gem.active && gem.getData('isAnimating'));
+    if (this.activeSwapCount > 0 || this.isRenderingQueue || hasAnimatingGems) {
+      return;
+    }
+
+    this.visualVersion += 1;
+    this.renderQueue = [];
+    this.isRenderingQueue = false;
+    this.activeSwapCount = 0;
+    this.swapBatch = [];
+    this.selectedGem = null;
+    this.drawBoard([], this.board);
   }
 }
