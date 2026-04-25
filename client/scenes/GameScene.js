@@ -60,6 +60,7 @@ export class GameScene extends Phaser.Scene {
     this.swapBatch = [];
     this.renderQueue = [];
     this.isRenderingQueue = false;
+    this.visualVersion = 0;
     this.score = getScore();
 
     const narrow = isNarrowViewport(GAME_WIDTH, GAME_HEIGHT);
@@ -352,6 +353,9 @@ export class GameScene extends Phaser.Scene {
 
   attemptAdjacentSwap(gem1, gem2) {
     if (gem1.getData('isAnimating') || gem2.getData('isAnimating')) return;
+    // Any new player swap invalidates previously queued visual cascade frames.
+    this.visualVersion += 1;
+    this.renderQueue = [];
     const r1 = gem1.getData('row');
     const c1 = gem1.getData('col');
     const r2 = gem2.getData('row');
@@ -607,6 +611,7 @@ export class GameScene extends Phaser.Scene {
         board: newBoard.map((row) => row.slice()),
         movement,
         removedCells,
+        visualVersion: this.visualVersion,
       });
       currentMatches = this.findMatches(workBoard);
     }
@@ -641,6 +646,13 @@ export class GameScene extends Phaser.Scene {
     }
     this.isRenderingQueue = true;
     const step = this.renderQueue.shift();
+    if (step.visualVersion !== this.visualVersion) {
+      this.drawBoard([], this.board);
+      this.time.delayedCall(0, () => {
+        this.playRenderQueue();
+      });
+      return;
+    }
     const removedTargets = [];
     if (step.removedCells) {
       step.removedCells.forEach(({ row, col }) => {
