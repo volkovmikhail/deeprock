@@ -2,9 +2,9 @@
  * Canonical portrait frame used for all layout math.
  * UI is designed against 430x932 and then fitted into a centered safe rectangle.
  */
-export const GAME_WIDTH = 430;
-export const GAME_HEIGHT = 932;
-export const SAFE_RECT_DEBUG = true;
+export const GAME_WIDTH = 500;
+export const GAME_HEIGHT = 840;
+export const SAFE_RECT_DEBUG = false;
 
 /** Like CSS object-fit: contain — whole image visible; on tall/narrow screens it scales to max height with side bars. */
 export function setImageContain(image, vw, vh) {
