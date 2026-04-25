@@ -25,8 +25,9 @@ const FRAME_INNER_PAD_X_MIN = 10;
 const FRAME_INNER_PAD_TOP_MIN = 70;
 const FRAME_INNER_PAD_BOTTOM_MIN = 12;
 const FALL_ANIMATION_DURATION = 360;
-const MATCH_RESOLVE_DELAY = 420;
-const MAX_PARALLEL_SWAPS = 5;
+const MATCH_RESOLVE_DELAY = 260;
+const DESTROY_FADE_DURATION = 110;
+const RENDER_STEP_DELAY_MIN = 90;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -57,6 +58,8 @@ export class GameScene extends Phaser.Scene {
     this.isResolvingBoard = false;
     this.activeSwapCount = 0;
     this.swapBatch = [];
+    this.renderQueue = [];
+    this.isRenderingQueue = false;
     this.score = getScore();
 
     const narrow = isNarrowViewport(GAME_WIDTH, GAME_HEIGHT);
@@ -196,7 +199,7 @@ export class GameScene extends Phaser.Scene {
     return false;
   }
 
-  drawBoard(movement = []) {
+  drawBoard(movement = [], boardState = this.board) {
     this.gemsGroup.clear(true, true);
 
     const offsetX = this.boardOffsetX;
@@ -210,7 +213,7 @@ export class GameScene extends Phaser.Scene {
 
     for (let row = 0; row < this.GRID_ROWS; row++) {
       for (let col = 0; col < this.GRID_COLS; col++) {
-        const colorIndex = this.board[row][col];
+        const colorIndex = boardState[row][col];
         const x = offsetX + col * this.CELL_SIZE + this.CELL_SIZE / 2;
         const y = offsetY + row * this.CELL_SIZE + this.CELL_SIZE / 2;
 
@@ -229,7 +232,7 @@ export class GameScene extends Phaser.Scene {
             targets: gem,
             y,
             duration: fallDuration,
-            ease: 'Quad.easeIn',
+            ease: 'Cubic.easeOut',
           });
         }
 
@@ -239,7 +242,7 @@ export class GameScene extends Phaser.Scene {
 
         gem.setInteractive({ useHandCursor: true });
         gem.on('pointerdown', (pointer) => {
-          if (this.isResolvingBoard || gem.getData('isAnimating')) return;
+          if (gem.getData('isAnimating')) return;
           this.swipeGem = gem;
           this.swipePointerId = pointer.id;
           this.swipeStartX = pointer.worldX;
@@ -317,7 +320,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   onGemClicked(gem) {
-    if (this.isResolvingBoard || gem.getData('isAnimating')) return;
+    if (gem.getData('isAnimating')) return;
     if (this.selectedGem && this.selectedGem.getData('isAnimating')) {
       this.selectedGem = null;
     }
@@ -348,27 +351,31 @@ export class GameScene extends Phaser.Scene {
   }
 
   attemptAdjacentSwap(gem1, gem2) {
-    if (this.isResolvingBoard) return;
-    if (this.activeSwapCount >= MAX_PARALLEL_SWAPS) return;
     if (gem1.getData('isAnimating') || gem2.getData('isAnimating')) return;
+    const r1 = gem1.getData('row');
+    const c1 = gem1.getData('col');
+    const r2 = gem2.getData('row');
+    const c2 = gem2.getData('col');
     this.activeSwapCount += 1;
-    this.swapBatch.push({ gem1, gem2 });
-    this.swapGems(gem1, gem2, () => {
+    this.swapBatch.push({ r1, c1, r2, c2 });
+    const started = this.swapGems(gem1, gem2, () => {
       this.finalizeSwapStep();
     });
+    if (!started) {
+      this.activeSwapCount = Math.max(0, this.activeSwapCount - 1);
+    }
     this.deselectGem(this.selectedGem);
     this.selectedGem = null;
   }
 
   finalizeSwapStep() {
-    if (this.isResolvingBoard || this.activeSwapCount > 0) {
+    if (this.activeSwapCount > 0) {
       return;
     }
 
     const matches = this.findMatches(this.board);
     if (matches.length > 0) {
       this.swapBatch = [];
-      this.isResolvingBoard = true;
       this.handleMatches(matches);
       return;
     }
@@ -379,21 +386,29 @@ export class GameScene extends Phaser.Scene {
   revertSwapBatch() {
     if (this.swapBatch.length === 0) return;
 
-    this.isResolvingBoard = true;
     const swapsToRevert = this.swapBatch.slice().reverse();
     this.swapBatch = [];
 
     const runNextRevert = () => {
       if (swapsToRevert.length === 0) {
-        this.isResolvingBoard = false;
         return;
       }
 
-      const { gem1, gem2 } = swapsToRevert.shift();
+      const { r1, c1, r2, c2 } = swapsToRevert.shift();
+      const gem1 = this.findGemAt(r1, c1);
+      const gem2 = this.findGemAt(r2, c2);
+      if (!gem1 || !gem2 || gem1.getData('isAnimating') || gem2.getData('isAnimating')) {
+        runNextRevert();
+        return;
+      }
       this.activeSwapCount += 1;
-      this.swapGems(gem1, gem2, () => {
+      const started = this.swapGems(gem1, gem2, () => {
         runNextRevert();
       });
+      if (!started) {
+        this.activeSwapCount = Math.max(0, this.activeSwapCount - 1);
+        runNextRevert();
+      }
     };
 
     runNextRevert();
@@ -410,10 +425,27 @@ export class GameScene extends Phaser.Scene {
   }
 
   swapGems(gem1, gem2, onComplete) {
+    if (!gem1 || !gem2 || !gem1.active || !gem2.active) {
+      onComplete();
+      return false;
+    }
     const r1 = gem1.getData('row');
     const c1 = gem1.getData('col');
     const r2 = gem2.getData('row');
     const c2 = gem2.getData('col');
+    if (
+      r1 === undefined ||
+      c1 === undefined ||
+      r2 === undefined ||
+      c2 === undefined ||
+      !this.board[r1] ||
+      !this.board[r2] ||
+      this.board[r1][c1] === undefined ||
+      this.board[r2][c2] === undefined
+    ) {
+      onComplete();
+      return false;
+    }
 
     const tmp = this.board[r1][c1];
     this.board[r1][c1] = this.board[r2][c2];
@@ -454,6 +486,7 @@ export class GameScene extends Phaser.Scene {
       ease: 'Quad.easeInOut',
       onComplete: finalizeSwap,
     });
+    return true;
   }
 
   findMatches(b) {
@@ -517,72 +550,130 @@ export class GameScene extends Phaser.Scene {
   }
 
   handleMatches(matches) {
-    const toRemove = new Set();
+    let workBoard = this.board.map((row) => row.slice());
+    let currentMatches = matches;
+    const renderSteps = [];
+    let totalRemoved = 0;
 
-    matches.forEach((m) => {
-      if (m.type === 'row') {
-        for (let c = m.colStart; c < m.colStart + m.length; c++) {
-          toRemove.add(`${m.row},${c}`);
-        }
-      } else {
-        for (let r = m.rowStart; r < m.rowStart + m.length; r++) {
-          toRemove.add(`${r},${m.col}`);
-        }
-      }
-    });
-
-    if (toRemove.size > 0) {
-      hapticGemBreak();
-    }
-
-    const delta = toRemove.size * 10;
-    this.score += delta;
-    setScore(this.score);
-    this.scoreText.setText(`Score: ${this.score}`);
-    this.syncScoreDelta(delta);
-
-    toRemove.forEach((key) => {
-      const [r, c] = key.split(',').map(Number);
-      this.board[r][c] = null;
-    });
-
-    const movement = [];
-    const newBoard = [];
-
-    for (let row = 0; row < this.GRID_ROWS; row++) {
-      newBoard[row] = new Array(this.GRID_COLS).fill(null);
-    }
-
-    for (let col = 0; col < this.GRID_COLS; col++) {
-      let pointer = this.GRID_ROWS - 1;
-
-      for (let row = this.GRID_ROWS - 1; row >= 0; row--) {
-        if (this.board[row][col] !== null) {
-          newBoard[pointer][col] = this.board[row][col];
-          if (pointer !== row) {
-            movement.push({ row: pointer, col, fromRow: row });
+    while (currentMatches.length > 0) {
+      const toRemove = new Set();
+      currentMatches.forEach((m) => {
+        if (m.type === 'row') {
+          for (let c = m.colStart; c < m.colStart + m.length; c++) {
+            toRemove.add(`${m.row},${c}`);
           }
-          pointer--;
+        } else {
+          for (let r = m.rowStart; r < m.rowStart + m.length; r++) {
+            toRemove.add(`${r},${m.col}`);
+          }
+        }
+      });
+
+      totalRemoved += toRemove.size;
+      toRemove.forEach((key) => {
+        const [r, c] = key.split(',').map(Number);
+        workBoard[r][c] = null;
+      });
+
+      const movement = [];
+      const newBoard = [];
+      for (let row = 0; row < this.GRID_ROWS; row++) {
+        newBoard[row] = new Array(this.GRID_COLS).fill(null);
+      }
+
+      for (let col = 0; col < this.GRID_COLS; col++) {
+        let pointer = this.GRID_ROWS - 1;
+        for (let row = this.GRID_ROWS - 1; row >= 0; row--) {
+          if (workBoard[row][col] !== null) {
+            newBoard[pointer][col] = workBoard[row][col];
+            if (pointer !== row) {
+              movement.push({ row: pointer, col, fromRow: row });
+            }
+            pointer--;
+          }
+        }
+        for (let row = pointer; row >= 0; row--) {
+          newBoard[row][col] = Phaser.Math.Between(0, this.ORE_KEYS.length - 1);
+          movement.push({ row, col, fromRow: -1 });
         }
       }
 
-      for (let row = pointer; row >= 0; row--) {
-        newBoard[row][col] = Phaser.Math.Between(0, this.ORE_KEYS.length - 1);
-        movement.push({ row, col, fromRow: -1 });
-      }
+      workBoard = newBoard;
+      const removedCells = Array.from(toRemove, (key) => {
+        const [row, col] = key.split(',').map(Number);
+        return { row, col };
+      });
+      renderSteps.push({
+        board: newBoard.map((row) => row.slice()),
+        movement,
+        removedCells,
+      });
+      currentMatches = this.findMatches(workBoard);
     }
 
-    this.board = newBoard;
+    if (totalRemoved > 0) {
+      hapticGemBreak();
+      const delta = totalRemoved * 10;
+      this.score += delta;
+      setScore(this.score);
+      this.scoreText.setText(`Score: ${this.score}`);
+      this.syncScoreDelta(delta);
+    }
 
-    this.drawBoard(movement);
+    this.board = workBoard;
+    if (renderSteps.length > 0) {
+      this.enqueueRenderSteps(renderSteps);
+    }
+    this.finalizeSwapStep();
+  }
 
-    this.time.delayedCall(MATCH_RESOLVE_DELAY, () => {
-      const newMatches = this.findMatches(this.board);
-      if (newMatches.length > 0) {
-        this.handleMatches(newMatches);
-      } else {
-        this.isResolvingBoard = false;
-      }
-    });
+  enqueueRenderSteps(steps) {
+    this.renderQueue.push(...steps);
+    if (!this.isRenderingQueue) {
+      this.playRenderQueue();
+    }
+  }
+
+  playRenderQueue() {
+    if (this.renderQueue.length === 0) {
+      this.isRenderingQueue = false;
+      return;
+    }
+    this.isRenderingQueue = true;
+    const step = this.renderQueue.shift();
+    const removedTargets = [];
+    if (step.removedCells) {
+      step.removedCells.forEach(({ row, col }) => {
+        const gem = this.findGemAt(row, col);
+        if (gem) removedTargets.push(gem);
+      });
+    }
+
+    const continueRender = () => {
+      this.drawBoard(step.movement, step.board);
+      this.time.delayedCall(this.getRenderStepDelay(), () => {
+        this.playRenderQueue();
+      });
+    };
+
+    if (removedTargets.length > 0) {
+      this.tweens.add({
+        targets: removedTargets,
+        alpha: 0.2,
+        scale: (target) => target.scale * 0.9,
+        duration: DESTROY_FADE_DURATION,
+        ease: 'Sine.easeIn',
+        onComplete: continueRender,
+      });
+      return;
+    }
+
+    continueRender();
+  }
+
+  getRenderStepDelay() {
+    const queuePressure = this.renderQueue.length;
+    const speedup = Math.min(140, queuePressure * 18);
+    return Math.max(RENDER_STEP_DELAY_MIN, MATCH_RESOLVE_DELAY - speedup);
   }
 }
