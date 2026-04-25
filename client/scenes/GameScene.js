@@ -146,12 +146,9 @@ export class GameScene extends Phaser.Scene {
       this.scene.start('MainMenu');
     });
 
-    this.swipeGem = null;
-    this.swipePointerId = null;
-    this.swipeStartX = 0;
-    this.swipeStartY = 0;
-    /** Tap same selected gem: deselect on pointerup (so swipe from selected gem still works). */
-    this.swipeDeferSameGemTap = false;
+    this.swipeStateByPointer = new Map();
+    // Explicitly allow multi-touch gestures (2+ fingers in parallel).
+    this.input.addPointer(2);
 
     this.input.on('pointerup', (pointer) => {
       this.onGemPointerUp(pointer);
@@ -244,15 +241,18 @@ export class GameScene extends Phaser.Scene {
         gem.setInteractive({ useHandCursor: true });
         gem.on('pointerdown', (pointer) => {
           if (gem.getData('isAnimating')) return;
-          this.swipeGem = gem;
-          this.swipePointerId = pointer.id;
-          this.swipeStartX = pointer.worldX;
-          this.swipeStartY = pointer.worldY;
+          const swipeState = {
+            gem,
+            startX: pointer.worldX,
+            startY: pointer.worldY,
+            deferSameGemTap: false,
+          };
           if (this.selectedGem === gem) {
-            this.swipeDeferSameGemTap = true;
+            swipeState.deferSameGemTap = true;
           } else {
             this.onGemClicked(gem);
           }
+          this.swipeStateByPointer.set(pointer.id, swipeState);
         });
 
         this.gemsGroup.add(gem);
@@ -270,21 +270,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   onGemPointerUp(pointer) {
-    if (!this.swipeGem || pointer.id !== this.swipePointerId) {
+    const swipeState = this.swipeStateByPointer.get(pointer.id);
+    if (!swipeState) {
       return;
     }
+    this.swipeStateByPointer.delete(pointer.id);
 
-    const gem = this.swipeGem;
-    this.swipeGem = null;
-    this.swipePointerId = null;
+    const gem = swipeState.gem;
+    if (!gem || !gem.active) return;
 
-    const dx = pointer.worldX - this.swipeStartX;
-    const dy = pointer.worldY - this.swipeStartY;
+    const dx = pointer.worldX - swipeState.startX;
+    const dy = pointer.worldY - swipeState.startY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const threshold = Math.max(18, this.CELL_SIZE * 0.22);
 
     if (dist >= threshold) {
-      this.swipeDeferSameGemTap = false;
       let dr = 0;
       let dc = 0;
       if (Math.abs(dx) >= Math.abs(dy)) {
@@ -314,8 +314,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (this.swipeDeferSameGemTap) {
-      this.swipeDeferSameGemTap = false;
+    if (swipeState.deferSameGemTap) {
       this.onGemClicked(gem);
     }
   }
