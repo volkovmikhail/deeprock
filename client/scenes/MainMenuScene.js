@@ -5,7 +5,8 @@ import {
   isSafeRectDebugEnabled,
   setImageCover,
 } from '../config.js';
-import { username } from '../state.js';
+import { layoutBorderFrame } from '../borderFrame.js';
+import { username, getMetals, getMinerals } from '../state.js';
 
 export class MainMenuScene extends Phaser.Scene {
   constructor() {
@@ -16,9 +17,13 @@ export class MainMenuScene extends Phaser.Scene {
     this.load.image('bg', 'assets/bg.png');
     this.load.image('drill', 'assets/drill.webp');
     this.load.image('factory', 'assets/factory.webp');
+    this.load.image('factory_border_bg', 'assets/border_frame.webp');
+    this.load.image('res_metal_icon', 'assets/gold_ore.webp');
+    this.load.image('res_mineral_icon', 'assets/ruby_ore.webp');
   }
 
   create() {
+    this.factoryWindow = null;
     this.handleResize = () => {
       this.scene.restart();
     };
@@ -86,6 +91,11 @@ export class MainMenuScene extends Phaser.Scene {
     let maxSide = Math.min(contentRect.width * 0.754, contentRect.height * 0.442);
     factory.setScale(maxSide / Math.max(factory.width, factory.height));
 
+    factory.setInteractive({ useHandCursor: true });
+    factory.on('pointerdown', () => {
+      this.openFactoryWindow(contentRect);
+    });
+
     const drill = this.add
       .image(contentRect.x + contentRect.width * 0.76, contentRect.y + contentRect.height * 0.68, 'drill')
       .setOrigin(0.5);
@@ -96,5 +106,74 @@ export class MainMenuScene extends Phaser.Scene {
     drill.on('pointerdown', () => {
       this.scene.start('Game');
     });
+  }
+
+  openFactoryWindow(safeRect) {
+    if (this.factoryWindow) {
+      return;
+    }
+
+    // Blocks clicks on menu buttons underneath and closes the window when tapped outside the frame.
+    const overlay = this.add
+      .rectangle(this.scale.width / 2, this.scale.height / 2, this.scale.width, this.scale.height, 0x000000, 0)
+      .setInteractive();
+
+    const frame = this.add.image(0, 0, 'factory_border_bg');
+    // Same fit/scale/padding math as the game board frame, so the window matches the game scene exactly.
+    const { bgRect, innerRect } = layoutBorderFrame(frame, safeRect);
+    frame.setInteractive();
+
+    const rowFont = Math.max(14, Math.round(innerRect.width * 0.065));
+    const iconSize = rowFont * 1.6;
+    const padX = innerRect.width * 0.05;
+    const padY = innerRect.height * 0.04;
+    const rowGap = iconSize + rowFont * 0.5;
+    const iconX = innerRect.x + padX + iconSize / 2;
+    const textX = iconX + iconSize / 2 + rowFont * 0.4;
+    const row1Y = innerRect.y + padY + iconSize / 2;
+    const row2Y = row1Y + rowGap;
+
+    const metalIcon = this.add.image(iconX, row1Y, 'res_metal_icon').setOrigin(0.5);
+    metalIcon.setDisplaySize(iconSize, iconSize);
+    const metalText = this.add
+      .text(textX, row1Y, `Metals: ${getMetals()}`, {
+        fontFamily: 'Arial',
+        fontSize: `${rowFont}px`,
+        color: '#ffffff',
+      })
+      .setOrigin(0, 0.5);
+
+    const mineralIcon = this.add.image(iconX, row2Y, 'res_mineral_icon').setOrigin(0.5);
+    mineralIcon.setDisplaySize(iconSize, iconSize);
+    const mineralText = this.add
+      .text(textX, row2Y, `Minerals: ${getMinerals()}`, {
+        fontFamily: 'Arial',
+        fontSize: `${rowFont}px`,
+        color: '#ffffff',
+      })
+      .setOrigin(0, 0.5);
+
+    const closeFont = Math.max(13, Math.round(bgRect.width * 0.032));
+    const closeBtn = this.add
+      .text(bgRect.x + bgRect.width - 50, Math.max(2, bgRect.y - 32), 'Close', {
+        fontFamily: 'Arial',
+        fontSize: `${closeFont}px`,
+        color: '#eeeeee',
+        backgroundColor: '#2d2d3d',
+        padding: { x: 10, y: 6 },
+      })
+      .setOrigin(1, 0)
+      .setInteractive({ useHandCursor: true });
+
+    this.factoryWindow = this.add
+      .container(0, 0, [overlay, frame, metalIcon, metalText, mineralIcon, mineralText, closeBtn])
+      .setDepth(50);
+
+    const close = () => {
+      this.factoryWindow.destroy(true);
+      this.factoryWindow = null;
+    };
+    overlay.on('pointerdown', close);
+    closeBtn.on('pointerdown', close);
   }
 }

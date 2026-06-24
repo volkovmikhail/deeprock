@@ -22,4 +22,5 @@ jobs:
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
             git pull
+            npm run migrations
             pm2 reload all --update-env

@@ -3,28 +3,13 @@ import {
   GAME_HEIGHT,
   getSafeViewportRect,
   isSafeRectDebugEnabled,
-  setImageContain,
   setImageCover,
 } from '../config.js';
+import { layoutBorderFrame } from '../borderFrame.js';
 import { hapticGemBreak } from '../haptics.js';
-import { getScore, setScore } from '../state.js';
+import { getMetals, setMetals, getMinerals, setMinerals } from '../state.js';
+import { ORE_KEYS, ORE_RESOURCE_VALUES, pickWeightedOreIndex } from '../oreConfig.js';
 
-/** Масштаб рамки после contain (чуть >1 — немного шире/выше всплывающий декор). */
-const BORDER_FRAME_SCALE = 1.1;
-
-/** Макс. ширина рамки относительно ширины backdrop (1 = не шире фона; чуть >1 — допустимый люфт). */
-const BORDER_MAX_WIDTH_VS_BACKDROP = 1.10;
-
-/**
- * Внутреннее «окно» под поле: доли от размера спрайта рамки (толщина декора по краям текстуры).
- * Подогнано под border_frame.webp ~928×1232.
- */
-const FRAME_INNER_PAD_X_RATIO = 0.22;
-const FRAME_INNER_PAD_TOP_RATIO = 0.13;
-const FRAME_INNER_PAD_BOTTOM_RATIO = 0.1;
-const FRAME_INNER_PAD_X_MIN = 10;
-const FRAME_INNER_PAD_TOP_MIN = 50;
-const FRAME_INNER_PAD_BOTTOM_MIN = 12;
 const FALL_ANIMATION_DURATION = 360;
 const MATCH_RESOLVE_DELAY = 260;
 const DESTROY_FADE_DURATION = 110;
@@ -46,6 +31,9 @@ export class GameScene extends Phaser.Scene {
     this.load.image('ore_lapis', 'assets/lapis_lazuli_ore.webp');
     this.load.image('ore_ruby', 'assets/ruby_ore.webp');
     this.load.image('ore_silver', 'assets/ssilver_ore.webp');
+
+    this.load.image('res_metal_icon', 'assets/gold_ore.webp');
+    this.load.image('res_mineral_icon', 'assets/ruby_ore.webp');
   }
 
   create() {
@@ -66,7 +54,7 @@ export class GameScene extends Phaser.Scene {
     this.GRID_ROWS = 11;
     this.GRID_COLS = 6;
 
-    this.ORE_KEYS = ['ore_copper', 'ore_gold', 'ore_emerald', 'ore_lapis', 'ore_ruby', 'ore_silver'];
+    this.ORE_KEYS = ORE_KEYS;
 
     this.board = [];
     this.gemsGroup = this.add.group();
@@ -77,7 +65,8 @@ export class GameScene extends Phaser.Scene {
     this.renderQueue = [];
     this.isRenderingQueue = false;
     this.visualVersion = 0;
-    this.score = getScore();
+    this.metals = getMetals();
+    this.minerals = getMinerals();
 
     const backdrop = this.add
       .image(screenW / 2, screenH / 2, 'game_backdrop')
@@ -93,58 +82,51 @@ export class GameScene extends Phaser.Scene {
         .setDepth(1000);
     }
 
-    const border = this.add
-      .image(safeRect.x + safeRect.width / 2, safeRect.y + safeRect.height / 2, 'game_border_bg')
-      .setOrigin(0.5)
-      .setDepth(-2);
+    const border = this.add.image(0, 0, 'game_border_bg').setDepth(-2);
     // Keep gameplay container geometry stable on every aspect ratio.
-    setImageContain(border, safeRect.width, safeRect.height);
-    border.setDisplaySize(
-      border.displayWidth * BORDER_FRAME_SCALE,
-      border.displayHeight * BORDER_FRAME_SCALE,
-    );
-    const maxBorderW = safeRect.width * BORDER_MAX_WIDTH_VS_BACKDROP;
-    if (border.displayWidth > maxBorderW) {
-      const s = maxBorderW / border.displayWidth;
-      border.setDisplaySize(border.displayWidth * s, border.displayHeight * s);
-    }
-    this.bgRect = {
-      x: safeRect.x + (safeRect.width - border.displayWidth) / 2,
-      y: safeRect.y + (safeRect.height - border.displayHeight) / 2,
-      width: border.displayWidth,
-      height: border.displayHeight,
-    };
+    const { bgRect, innerRect } = layoutBorderFrame(border, safeRect);
+    this.bgRect = bgRect;
 
-    const padX = Math.max(FRAME_INNER_PAD_X_MIN, this.bgRect.width * FRAME_INNER_PAD_X_RATIO);
-    const padTop = Math.max(FRAME_INNER_PAD_TOP_MIN, this.bgRect.height * FRAME_INNER_PAD_TOP_RATIO);
-    const padBottom = Math.max(
-      FRAME_INNER_PAD_BOTTOM_MIN,
-      this.bgRect.height * FRAME_INNER_PAD_BOTTOM_RATIO,
-    );
-    const innerW = this.bgRect.width - 2 * padX;
-    const innerH = this.bgRect.height - padTop - padBottom;
-
-    this.CELL_SIZE = Math.min(innerW / this.GRID_COLS, innerH / this.GRID_ROWS);
+    this.CELL_SIZE = Math.min(innerRect.width / this.GRID_COLS, innerRect.height / this.GRID_ROWS);
     this.boardOffsetX =
-      this.bgRect.x + padX + (innerW - this.GRID_COLS * this.CELL_SIZE) / 2;
+      innerRect.x + (innerRect.width - this.GRID_COLS * this.CELL_SIZE) / 2;
     this.boardOffsetY =
-      this.bgRect.y + padTop + (innerH - this.GRID_ROWS * this.CELL_SIZE) / 2;
+      innerRect.y + (innerRect.height - this.GRID_ROWS * this.CELL_SIZE) / 2;
 
     this.cameras.main.setBackgroundColor('#000000');
 
-    const scoreFont = Math.max(18, Math.min(34, Math.round(this.bgRect.width * 0.06)));
+    // Top HUD: metals and minerals (icon + amount), replaces the deprecated score readout.
+    const hudFont = Math.max(18, Math.min(34, Math.round(this.bgRect.width * 0.06)));
+    const hudIconSize = hudFont * 1.4;
+    const hudY = Math.max(16, this.bgRect.y - 16);
+    const hudX = this.bgRect.x + 44;
 
-    this.scoreText = this.add
-      .text(
-        this.bgRect.x + 44,
-        Math.max(16, this.bgRect.y - 16),
-        `Score: ${this.score}`,
-        {
-          fontFamily: 'Arial',
-          fontSize: `${scoreFont}px`,
-          color: '#ffffff',
-        },
-      )
+    const metalIcon = this.add
+      .image(hudX, hudY, 'res_metal_icon')
+      .setOrigin(0, 0.5)
+      .setDepth(10);
+    metalIcon.setDisplaySize(hudIconSize, hudIconSize);
+    this.metalText = this.add
+      .text(hudX + hudIconSize + hudFont * 0.3, hudY, `${this.metals}`, {
+        fontFamily: 'Arial',
+        fontSize: `${hudFont}px`,
+        color: '#ffffff',
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(10);
+
+    const mineralIconX = this.metalText.x + this.metalText.width + hudFont * 0.8;
+    const mineralIcon = this.add
+      .image(mineralIconX, hudY, 'res_mineral_icon')
+      .setOrigin(0, 0.5)
+      .setDepth(10);
+    mineralIcon.setDisplaySize(hudIconSize, hudIconSize);
+    this.mineralText = this.add
+      .text(mineralIconX + hudIconSize + hudFont * 0.3, hudY, `${this.minerals}`, {
+        fontFamily: 'Arial',
+        fontSize: `${hudFont}px`,
+        color: '#ffffff',
+      })
       .setOrigin(0, 0.5)
       .setDepth(10);
 
@@ -186,15 +168,15 @@ export class GameScene extends Phaser.Scene {
 
   update() {}
 
-  syncScoreDelta(amount) {
+  syncResourceDelta(metals, minerals) {
     const tg = window?.Telegram?.WebApp;
-    fetch('/api/user/score', {
+    fetch('/api/user/resources', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         auth: tg?.initData || '',
       },
-      body: JSON.stringify({ amount }),
+      body: JSON.stringify({ metals, minerals }),
     }).catch(() => {});
   }
 
@@ -205,7 +187,7 @@ export class GameScene extends Phaser.Scene {
       for (let col = 0; col < this.GRID_COLS; col++) {
         let colorIndex;
         do {
-          colorIndex = Phaser.Math.Between(0, this.ORE_KEYS.length - 1);
+          colorIndex = pickWeightedOreIndex();
           this.board[row][col] = colorIndex;
         } while (this.createsMatchAt(this.board, row, col));
       }
@@ -576,6 +558,8 @@ export class GameScene extends Phaser.Scene {
     let currentMatches = matches;
     const renderSteps = [];
     let totalRemoved = 0;
+    let totalMetals = 0;
+    let totalMinerals = 0;
 
     while (currentMatches.length > 0) {
       const toRemove = new Set();
@@ -594,6 +578,9 @@ export class GameScene extends Phaser.Scene {
       totalRemoved += toRemove.size;
       toRemove.forEach((key) => {
         const [r, c] = key.split(',').map(Number);
+        const resourceValue = ORE_RESOURCE_VALUES[this.ORE_KEYS[workBoard[r][c]]];
+        totalMetals += resourceValue.metals;
+        totalMinerals += resourceValue.minerals;
         workBoard[r][c] = null;
       });
 
@@ -615,7 +602,7 @@ export class GameScene extends Phaser.Scene {
           }
         }
         for (let row = pointer; row >= 0; row--) {
-          newBoard[row][col] = Phaser.Math.Between(0, this.ORE_KEYS.length - 1);
+          newBoard[row][col] = pickWeightedOreIndex();
           movement.push({ row, col, fromRow: -1 });
         }
       }
@@ -636,11 +623,16 @@ export class GameScene extends Phaser.Scene {
 
     if (totalRemoved > 0) {
       hapticGemBreak();
-      const delta = totalRemoved * 10;
-      this.score += delta;
-      setScore(this.score);
-      this.scoreText.setText(`Score: ${this.score}`);
-      this.syncScoreDelta(delta);
+    }
+
+    if (totalMetals > 0 || totalMinerals > 0) {
+      this.metals += totalMetals;
+      this.minerals += totalMinerals;
+      setMetals(this.metals);
+      setMinerals(this.minerals);
+      this.metalText.setText(`${this.metals}`);
+      this.mineralText.setText(`${this.minerals}`);
+      this.syncResourceDelta(totalMetals, totalMinerals);
     }
 
     this.board = workBoard;
